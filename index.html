@@ -310,10 +310,10 @@ body {
 
 .fav-btn {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 24px;
-  height: 24px;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -327,10 +327,12 @@ body {
 }
 
 .fav-btn.active { opacity: 1; }
-
 .fav-btn svg { display: block; }
+
+/* App grid */
+.app-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin-bottom: 12px;
 }
@@ -339,43 +341,36 @@ body {
   background: var(--surface);
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px 14px;
+  padding: 16px 8px 12px;
   cursor: pointer;
   transition: all 0.15s;
   user-select: none;
   min-width: 0;
+  text-align: center;
+  position: relative;
 }
 
 .app-grid-item:active {
   border-color: var(--border-strong);
-  transform: scale(0.98);
+  transform: scale(0.96);
 }
 
 .app-grid-emoji {
-  font-size: 28px;
+  font-size: 32px;
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .app-grid-name {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--text);
-  margin-bottom: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.app-grid-repo {
-  font-family: 'DM Mono', monospace;
-  font-size: 10px;
-  color: var(--muted);
-  font-weight: 300;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+.app-grid-repo { display: none; }
 
 /* List view (search results) */
 .app-list {
@@ -454,6 +449,7 @@ body {
 
 /* Add app button */
 .add-btn {
+  margin-top: 24px;
   display: flex;
   align-items: center;
   justify-content: center;

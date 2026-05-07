@@ -2666,6 +2666,52 @@ function checkOnboard() {
   }
 }
 
+// ── Swipe down to dismiss sheets ──
+(function() {
+  const SHEETS = ['tokenSheet', 'appSheet'];
+
+  SHEETS.forEach(sheetId => {
+    const overlay = document.getElementById(sheetId);
+    const sheet = overlay.querySelector('.sheet');
+    let startY = 0;
+    let isDragging = false;
+
+    sheet.addEventListener('touchstart', (e) => {
+      startY = e.touches[0].clientY;
+      isDragging = true;
+      sheet.style.transition = 'none';
+    }, { passive: true });
+
+    sheet.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy > 0) {
+        sheet.style.transform = `translateY(${dy}px)`;
+      }
+    }, { passive: true });
+
+    sheet.addEventListener('touchend', (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      const dy = e.changedTouches[0].clientY - startY;
+      sheet.style.transition = 'transform 0.25s cubic-bezier(0.32, 0.72, 0, 1)';
+      if (dy > 100) {
+        sheet.style.transform = `translateY(100%)`;
+        setTimeout(() => {
+          overlay.classList.remove('open');
+          sheet.style.transform = '';
+          sheet.style.transition = '';
+        }, 250);
+      } else {
+        sheet.style.transform = 'translateY(0)';
+        setTimeout(() => {
+          sheet.style.transition = '';
+        }, 250);
+      }
+    }, { passive: true });
+  });
+})();
+
 // ── Swipe right to go back on deploy screen ──
 (function() {
   const deployView = document.getElementById('deployView');

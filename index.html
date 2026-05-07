@@ -2695,6 +2695,60 @@ function checkOnboard() {
   }
 }
 
+// ── Swipe right to go back on deploy screen ──
+(function() {
+  const deployView = document.getElementById('deployView');
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+
+  deployView.addEventListener('touchstart', (e) => {
+    const touch = e.touches[0];
+    // Only trigger if swipe starts from left edge (within 30px)
+    if (touch.clientX < 30) {
+      startX = touch.clientX;
+      startY = touch.clientY;
+      tracking = true;
+    }
+  }, { passive: true });
+
+  deployView.addEventListener('touchmove', (e) => {
+    if (!tracking) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = Math.abs(e.touches[0].clientY - startY);
+    // Must be more horizontal than vertical
+    if (dx > 10 && dy < 60) {
+      deployView.style.transform = `translateX(${Math.min(dx, window.innerWidth)}px)`;
+      deployView.style.transition = 'none';
+    }
+  }, { passive: true });
+
+  deployView.addEventListener('touchend', (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const dx = e.changedTouches[0].clientX - startX;
+    if (dx > 80) {
+      // Commit the swipe — animate out then go back
+      deployView.style.transition = 'transform 0.25s ease';
+      deployView.style.transform = `translateX(100%)`;
+      setTimeout(() => {
+        deployView.style.transform = '';
+        deployView.style.transition = '';
+        renderApps();
+        showView('homeView');
+      }, 250);
+    } else {
+      // Snap back
+      deployView.style.transition = 'transform 0.2s ease';
+      deployView.style.transform = 'translateX(0)';
+      setTimeout(() => {
+        deployView.style.transform = '';
+        deployView.style.transition = '';
+      }, 200);
+    }
+  }, { passive: true });
+})();
+
 // ── Pull to refresh ──
 (function() {
   let startY = 0;

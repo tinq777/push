@@ -412,7 +412,6 @@ body {
   transition: all 0.15s;
   user-select: none;
   -webkit-user-select: none;
-  -webkit-touch-callout: none;
   min-width: 0;
   text-align: center;
   position: relative;
@@ -467,56 +466,6 @@ body {
 .page-dot.active {
   background: #ffffff;
   transform: scale(1.2);
-}
-
-/* Drag reorder */
-.app-grid-item.dragging {
-  opacity: 0.4;
-  transform: scale(0.95);
-  border-color: var(--border-strong);
-}
-
-.app-grid-item.drag-over {
-  border-color: #ffffff;
-  background: #1a1a1a;
-}
-
-.app-grid-item.wiggle {
-  animation: wiggle 0.5s ease infinite alternate;
-}
-
-@keyframes wiggle {
-  from { transform: rotate(-1.5deg); }
-  to { transform: rotate(1.5deg); }
-}
-
-.edit-mode-bar {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 0 4px;
-  gap: 8px;
-}
-
-.edit-mode-bar.visible { display: flex; }
-
-.edit-mode-label {
-  font-family: 'DM Mono', monospace;
-  font-size: 11px;
-  color: var(--muted);
-  font-weight: 300;
-}
-
-.edit-mode-done {
-  background: none;
-  border: 1px solid var(--border-strong);
-  color: #ffffff;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 4px 12px;
-  border-radius: 100px;
-  cursor: pointer;
 }
 
 /* List view (search results) */
@@ -1535,10 +1484,6 @@ input[type="file"] { display: none; }
       <div class="app-grid-wrapper">
         <div class="app-grid-pages" id="appGrid"></div>
       </div>
-      <div class="edit-mode-bar" id="editModeBar">
-        <span class="edit-mode-label">Hold & drag to reorder</span>
-        <button class="edit-mode-done" id="editModeDone">Done</button>
-      </div>
       <div class="page-dots" id="pageDots"></div>
 
       <button class="add-btn" id="addAppBtn">
@@ -1940,104 +1885,6 @@ function renderFavourites() {
 }
 
 // ── Edit mode (drag reorder) ──
-let editMode = false;
-let dragSrcId = null;
-
-function enterEditMode() {
-  editMode = true;
-  document.getElementById('editModeBar').classList.add('visible');
-  document.querySelectorAll('.app-grid-item').forEach(el => el.classList.add('wiggle'));
-}
-
-function exitEditMode() {
-  editMode = false;
-  document.getElementById('editModeBar').classList.remove('visible');
-  document.querySelectorAll('.app-grid-item').forEach(el => {
-    el.classList.remove('wiggle', 'dragging', 'drag-over');
-  });
-}
-
-document.getElementById('editModeDone').addEventListener('click', exitEditMode);
-
-function setupDrag(el, id) {
-  const app = apps.find(a => a.id === id);
-  let pressTimer;
-  let pressStart;
-  let didLongPress = false;
-
-  // Prevent iOS context menu on long press
-  el.addEventListener('contextmenu', (e) => e.preventDefault());
-
-  el.addEventListener('touchstart', (e) => {
-    didLongPress = false;
-    pressStart = Date.now();
-
-    // Short hold (350ms) — open live URL
-    pressTimer = setTimeout(() => {
-      didLongPress = true;
-      if (!editMode) {
-        const liveUrl = `https://${app.username}.github.io/${app.repo}/`;
-        window.open(liveUrl, '_blank');
-        showToast('Opening ' + app.name + ' ↗');
-      }
-    }, 350);
-
-    // Long hold (700ms) — enter edit mode
-    setTimeout(() => {
-      if (Date.now() - pressStart >= 680 && !editMode) {
-        clearTimeout(pressTimer);
-        didLongPress = true;
-        enterEditMode();
-      }
-    }, 700);
-
-  }, { passive: true });
-
-  el.addEventListener('touchend', () => {
-    clearTimeout(pressTimer);
-  });
-
-  el.addEventListener('touchmove', () => {
-    clearTimeout(pressTimer);
-    didLongPress = true;
-  }, { passive: true });
-
-  // Drag events (works on desktop too)
-  el.setAttribute('draggable', 'true');
-
-  el.addEventListener('dragstart', (e) => {
-    if (!editMode) { enterEditMode(); }
-    dragSrcId = id;
-    el.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-  });
-
-  el.addEventListener('dragend', () => {
-    el.classList.remove('dragging');
-    document.querySelectorAll('.app-grid-item').forEach(i => i.classList.remove('drag-over'));
-  });
-
-  el.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    document.querySelectorAll('.app-grid-item').forEach(i => i.classList.remove('drag-over'));
-    el.classList.add('drag-over');
-  });
-
-  el.addEventListener('drop', (e) => {
-    e.preventDefault();
-    if (dragSrcId === id) return;
-    const srcIdx = apps.findIndex(a => a.id === dragSrcId);
-    const dstIdx = apps.findIndex(a => a.id === id);
-    if (srcIdx === -1 || dstIdx === -1) return;
-    const [moved] = apps.splice(srcIdx, 1);
-    apps.splice(dstIdx, 0, moved);
-    store.set('push_apps', apps);
-    renderApps();
-    if (editMode) enterEditMode();
-  });
-}
-
 function renderApps() {
   const grid = document.getElementById('appGrid');
   const label = document.getElementById('allAppsLabel');
@@ -2049,7 +1896,6 @@ function renderApps() {
     dots.style.display = 'none';
     document.getElementById('recentSection').style.display = 'none';
     document.getElementById('favSection').style.display = 'none';
-    document.getElementById('editModeBar').classList.remove('visible');
     return;
   }
 
@@ -2063,7 +1909,7 @@ function renderApps() {
   grid.innerHTML = pages.map((page, pi) => `
     <div class="app-grid-page" data-page="${pi}">
       ${page.map(app => `
-        <div class="app-grid-item${editMode ? ' wiggle' : ''}" data-id="${app.id}">
+        <div class="app-grid-item" data-id="${app.id}">
           <button class="fav-btn ${app.favourited ? 'active' : ''}" data-fav-id="${app.id}">
             ${bookmarkSVG(!!app.favourited)}
           </button>
@@ -2093,12 +1939,7 @@ function renderApps() {
   }
 
   grid.querySelectorAll('.app-grid-item').forEach(el => {
-    const id = el.dataset.id;
-    setupDrag(el, id);
-    el.addEventListener('click', (e) => {
-      if (editMode) return;
-      openDeploy(id);
-    });
+    el.addEventListener('click', () => openDeploy(el.dataset.id));
   });
 
   grid.querySelectorAll('.fav-btn').forEach(btn => {

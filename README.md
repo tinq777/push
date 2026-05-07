@@ -1,2 +1,2 @@
 # push
-Push deploys your Claude-built apps to GitHub Pages straight from your phone — no laptop, no terminal, one tap
+Push deploys your ai-built apps to GitHub straight from your phone — no laptop, no terminal, one tap

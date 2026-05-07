@@ -156,6 +156,51 @@ body {
   font-weight: 300;
   letter-spacing: 0.02em;
 }
+
+/* Pull to refresh */
+.pull-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: height 0.15s, opacity 0.15s;
+}
+
+.pull-indicator.visible {
+  height: 48px;
+  opacity: 1;
+}
+
+.pull-indicator.refreshing {
+  height: 48px;
+  opacity: 1;
+}
+
+.pull-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-strong);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pull-indicator.refreshing .pull-spinner {
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.pull-text {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 300;
+}
+
 .search-bar {
   display: flex;
   align-items: center;
@@ -775,6 +820,52 @@ input[type="file"] { display: none; }
 
 .result-btn:active { opacity: 0.7; }
 
+/* Deploy history */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.history-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.history-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.history-info { flex: 1; min-width: 0; }
+
+.history-message {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+}
+
 /* ── Bottom CTA ── */
 .bottom-cta {
   position: fixed;
@@ -1344,7 +1435,13 @@ input[type="file"] { display: none; }
     </button>
   </div>
 
-  <div class="scroll">
+  <div class="scroll" id="homeScroll">
+
+    <!-- Pull to refresh indicator -->
+    <div class="pull-indicator" id="pullIndicator">
+      <div class="pull-spinner" id="pullSpinner"></div>
+      <span class="pull-text" id="pullText">Pull to refresh</span>
+    </div>
 
     <!-- Search -->
     <div class="search-bar">
@@ -1464,6 +1561,13 @@ input[type="file"] { display: none; }
         <button class="result-btn secondary" id="copyUrlBtn">Copy URL</button>
       </div>
     </div>
+
+    <!-- Deploy history -->
+    <div id="deployHistory" style="display:none">
+      <div class="section-label" style="margin-bottom:10px">Deploy History</div>
+      <div class="history-list" id="historyList"></div>
+    </div>
+
   </div>
 
   <div class="bottom-cta">
@@ -1860,6 +1964,7 @@ function openDeploy(id) {
   document.getElementById('progressWrap').classList.remove('visible');
   document.getElementById('resultWrap').classList.remove('visible');
   resetSteps();
+  renderDeployHistory(id);
   showView('deployView');
 }
 
@@ -1924,6 +2029,35 @@ document.getElementById('filePillClear').addEventListener('click', () => {
   document.getElementById('dropZone').classList.remove('has-file');
   document.getElementById('deployBtn').disabled = true;
 });
+
+// ── Deploy History ──
+function saveDeployHistory(appId, message) {
+  const key = `push_history_${appId}`;
+  let history = store.get(key) || [];
+  history.unshift({ message, time: Date.now() });
+  history = history.slice(0, 10); // keep last 10
+  store.set(key, history);
+}
+
+function renderDeployHistory(appId) {
+  const key = `push_history_${appId}`;
+  const history = store.get(key) || [];
+  const section = document.getElementById('deployHistory');
+  const list = document.getElementById('historyList');
+
+  if (!history.length) { section.style.display = 'none'; return; }
+
+  section.style.display = 'block';
+  list.innerHTML = history.map(entry => `
+    <div class="history-item">
+      <div class="history-dot"></div>
+      <div class="history-info">
+        <div class="history-message">${entry.message}</div>
+        <div class="history-time">${timeAgo(entry.time)}</div>
+      </div>
+    </div>
+  `).join('');
+}
 
 // ── Deploy ──
 document.getElementById('deployBtn').addEventListener('click', deploy);
@@ -2042,6 +2176,11 @@ async function deploy() {
 
     setStep(3, 'done');
     setStep(4, 'done');
+
+    // Save to history
+    const commitMsg = `Deploy via Push — ${new Date().toLocaleString()}`;
+    saveDeployHistory(currentAppId, commitMsg);
+    renderDeployHistory(currentAppId);
 
     // Result
     const liveUrl = `https://${app.username}.github.io/${app.repo}/`;
@@ -2349,6 +2488,52 @@ function checkOnboard() {
     showOnboardStep(0);
   }
 }
+
+// ── Pull to refresh ──
+(function() {
+  let startY = 0;
+  let pulling = false;
+  let refreshing = false;
+  const THRESHOLD = 70;
+  const scroll = document.getElementById('homeScroll');
+  const indicator = document.getElementById('pullIndicator');
+  const pullText = document.getElementById('pullText');
+
+  scroll.addEventListener('touchstart', (e) => {
+    if (scroll.scrollTop === 0) {
+      startY = e.touches[0].clientY;
+      pulling = true;
+    }
+  }, { passive: true });
+
+  scroll.addEventListener('touchmove', (e) => {
+    if (!pulling || refreshing) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 10) {
+      indicator.classList.add('visible');
+      indicator.classList.remove('refreshing');
+      pullText.textContent = dy > THRESHOLD ? 'Release to refresh' : 'Pull to refresh';
+    } else {
+      indicator.classList.remove('visible');
+    }
+  }, { passive: true });
+
+  scroll.addEventListener('touchend', (e) => {
+    if (!pulling || refreshing) return;
+    pulling = false;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy > THRESHOLD) {
+      refreshing = true;
+      indicator.classList.add('refreshing');
+      pullText.textContent = 'Refreshing…';
+      setTimeout(() => {
+        location.reload();
+      }, 800);
+    } else {
+      indicator.classList.remove('visible');
+    }
+  }, { passive: true });
+})();
 
 // ── Init ──
 updateTokenStatus();

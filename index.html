@@ -1866,6 +1866,7 @@ function toggleFavourite(id, e) {
   store.set('push_apps', apps);
   renderApps();
   showToast(app.favourited ? 'Added to favourites' : 'Removed from favourites');
+  syncConfigToGitHub();
 }
 
 function renderFavourites() {
@@ -1948,6 +1949,107 @@ function renderApps() {
 
   renderFavourites();
   renderRecent();
+}
+
+// ── GitHub Config Sync ──
+const CONFIG_REPO = 'push-config';
+const CONFIG_FILE = 'config.json';
+
+function getConfigHeaders() {
+  return {
+    'Authorization': `token ${token}`,
+    'Accept': 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json'
+  };
+}
+
+async function ensureConfigRepo() {
+  if (!token || !globalUsername) return;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${globalUsername}/${CONFIG_REPO}`, {
+      headers: getConfigHeaders()
+    });
+    if (res.status === 404) {
+      // Create the private config repo
+      await fetch('https://api.github.com/user/repos', {
+        method: 'POST',
+        headers: getConfigHeaders(),
+        body: JSON.stringify({
+          name: CONFIG_REPO,
+          description: 'Push app config — do not delete',
+          private: true,
+          auto_init: true
+        })
+      });
+      // Wait for GitHub to initialise
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  } catch (e) { /* silent */ }
+}
+
+async function syncConfigToGitHub() {
+  if (!token || !globalUsername) return;
+  try {
+    const config = {
+      username: globalUsername,
+      apps: apps,
+      syncedAt: new Date().toISOString()
+    };
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(config, null, 2))));
+
+    // Get existing file SHA if it exists
+    let sha;
+    try {
+      const existing = await fetch(
+        `https://api.github.com/repos/${globalUsername}/${CONFIG_REPO}/contents/${CONFIG_FILE}`,
+        { headers: getConfigHeaders() }
+      );
+      if (existing.ok) {
+        const data = await existing.json();
+        sha = data.sha;
+      }
+    } catch (e) { /* file doesn't exist yet */ }
+
+    // Push config file
+    await fetch(
+      `https://api.github.com/repos/${globalUsername}/${CONFIG_REPO}/contents/${CONFIG_FILE}`,
+      {
+        method: 'PUT',
+        headers: getConfigHeaders(),
+        body: JSON.stringify({
+          message: 'Push config sync',
+          content,
+          ...(sha ? { sha } : {})
+        })
+      }
+    );
+  } catch (e) { /* silent fail */ }
+}
+
+async function restoreConfigFromGitHub() {
+  if (!token || !globalUsername) return false;
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${globalUsername}/${CONFIG_REPO}/contents/${CONFIG_FILE}`,
+      { headers: getConfigHeaders() }
+    );
+    if (!res.ok) return false;
+    const data = await res.json();
+    const decoded = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
+    const config = JSON.parse(decoded);
+
+    if (config.apps && Array.isArray(config.apps)) {
+      apps = config.apps;
+      store.set('push_apps', apps);
+    }
+    if (config.username) {
+      globalUsername = config.username;
+      store.set('push_username', globalUsername);
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 // ── Notifications ──
@@ -2278,6 +2380,15 @@ document.getElementById('tokenSave').addEventListener('click', () => {
   document.getElementById('tokenSheet').classList.remove('open');
   updateTokenStatus();
   showToast('Settings saved');
+  // Ensure config repo exists and try to restore config
+  ensureConfigRepo().then(() => restoreConfigFromGitHub()).then((restored) => {
+    if (restored) {
+      renderApps();
+      showToast('Config restored from GitHub ✓');
+    } else {
+      syncConfigToGitHub();
+    }
+  });
 });
 
 // ── Emoji picker ──
@@ -2458,7 +2569,7 @@ document.getElementById('appSave').addEventListener('click', async () => {
   saveBtn.disabled = false;
   saveBtn.textContent = editingAppId ? 'Update App' : 'Save App';
   document.getElementById('appSheet').classList.remove('open');
-});
+  syncConfigToGitHub();
 
 document.getElementById('appDelete').addEventListener('click', () => {
   if (!editingAppId) return;
@@ -2468,6 +2579,7 @@ document.getElementById('appDelete').addEventListener('click', () => {
   document.getElementById('appSheet').classList.remove('open');
   showView('homeView');
   showToast('App deleted');
+  syncConfigToGitHub();
 });
 
 // Close sheets on overlay tap
@@ -2640,6 +2752,19 @@ function checkOnboard() {
 updateTokenStatus();
 renderApps();
 checkOnboard();
+
+// If token exists, try to restore config from GitHub silently
+if (token && globalUsername) {
+  restoreConfigFromGitHub().then(restored => {
+    if (restored) {
+      renderApps();
+      updateTokenStatus();
+    } else {
+      // No config found remotely — ensure repo exists and sync current state
+      ensureConfigRepo().then(() => syncConfigToGitHub());
+    }
+  });
+}
 </script>
 </body>
 </html>

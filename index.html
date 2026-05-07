@@ -459,6 +459,56 @@ body {
   transform: scale(1.2);
 }
 
+/* Drag reorder */
+.app-grid-item.dragging {
+  opacity: 0.4;
+  transform: scale(0.95);
+  border-color: var(--border-strong);
+}
+
+.app-grid-item.drag-over {
+  border-color: #ffffff;
+  background: #1a1a1a;
+}
+
+.app-grid-item.wiggle {
+  animation: wiggle 0.5s ease infinite alternate;
+}
+
+@keyframes wiggle {
+  from { transform: rotate(-1.5deg); }
+  to { transform: rotate(1.5deg); }
+}
+
+.edit-mode-bar {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0 4px;
+  gap: 8px;
+}
+
+.edit-mode-bar.visible { display: flex; }
+
+.edit-mode-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+.edit-mode-done {
+  background: none;
+  border: 1px solid var(--border-strong);
+  color: #ffffff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 100px;
+  cursor: pointer;
+}
+
 /* List view (search results) */
 .app-list {
   display: flex;
@@ -1475,6 +1525,10 @@ input[type="file"] { display: none; }
       <div class="app-grid-wrapper">
         <div class="app-grid-pages" id="appGrid"></div>
       </div>
+      <div class="edit-mode-bar" id="editModeBar">
+        <span class="edit-mode-label">Hold & drag to reorder</span>
+        <button class="edit-mode-done" id="editModeDone">Done</button>
+      </div>
       <div class="page-dots" id="pageDots"></div>
 
       <button class="add-btn" id="addAppBtn">
@@ -1870,6 +1924,102 @@ function renderFavourites() {
   });
 }
 
+// ── Edit mode (drag reorder) ──
+let editMode = false;
+let dragSrcId = null;
+
+function enterEditMode() {
+  editMode = true;
+  document.getElementById('editModeBar').classList.add('visible');
+  document.querySelectorAll('.app-grid-item').forEach(el => el.classList.add('wiggle'));
+}
+
+function exitEditMode() {
+  editMode = false;
+  document.getElementById('editModeBar').classList.remove('visible');
+  document.querySelectorAll('.app-grid-item').forEach(el => {
+    el.classList.remove('wiggle', 'dragging', 'drag-over');
+  });
+}
+
+document.getElementById('editModeDone').addEventListener('click', exitEditMode);
+
+function setupDrag(el, id) {
+  const app = apps.find(a => a.id === id);
+  let pressTimer;
+  let pressStart;
+  let didLongPress = false;
+
+  el.addEventListener('touchstart', (e) => {
+    didLongPress = false;
+    pressStart = Date.now();
+
+    // Short hold (350ms) — open live URL
+    pressTimer = setTimeout(() => {
+      didLongPress = true;
+      if (!editMode) {
+        const liveUrl = `https://${app.username}.github.io/${app.repo}/`;
+        window.open(liveUrl, '_blank');
+        showToast('Opening ' + app.name + ' ↗');
+      }
+    }, 350);
+
+    // Long hold (700ms) — enter edit mode
+    setTimeout(() => {
+      if (Date.now() - pressStart >= 680 && !editMode) {
+        clearTimeout(pressTimer);
+        didLongPress = true;
+        enterEditMode();
+      }
+    }, 700);
+
+  }, { passive: true });
+
+  el.addEventListener('touchend', () => {
+    clearTimeout(pressTimer);
+  });
+
+  el.addEventListener('touchmove', () => {
+    clearTimeout(pressTimer);
+    didLongPress = true;
+  }, { passive: true });
+
+  // Drag events (works on desktop too)
+  el.setAttribute('draggable', 'true');
+
+  el.addEventListener('dragstart', (e) => {
+    if (!editMode) { enterEditMode(); }
+    dragSrcId = id;
+    el.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+
+  el.addEventListener('dragend', () => {
+    el.classList.remove('dragging');
+    document.querySelectorAll('.app-grid-item').forEach(i => i.classList.remove('drag-over'));
+  });
+
+  el.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('.app-grid-item').forEach(i => i.classList.remove('drag-over'));
+    el.classList.add('drag-over');
+  });
+
+  el.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (dragSrcId === id) return;
+    const srcIdx = apps.findIndex(a => a.id === dragSrcId);
+    const dstIdx = apps.findIndex(a => a.id === id);
+    if (srcIdx === -1 || dstIdx === -1) return;
+    const [moved] = apps.splice(srcIdx, 1);
+    apps.splice(dstIdx, 0, moved);
+    store.set('push_apps', apps);
+    renderApps();
+    if (editMode) enterEditMode();
+  });
+}
+
 function renderApps() {
   const grid = document.getElementById('appGrid');
   const label = document.getElementById('allAppsLabel');
@@ -1881,6 +2031,7 @@ function renderApps() {
     dots.style.display = 'none';
     document.getElementById('recentSection').style.display = 'none';
     document.getElementById('favSection').style.display = 'none';
+    document.getElementById('editModeBar').classList.remove('visible');
     return;
   }
 
@@ -1894,7 +2045,7 @@ function renderApps() {
   grid.innerHTML = pages.map((page, pi) => `
     <div class="app-grid-page" data-page="${pi}">
       ${page.map(app => `
-        <div class="app-grid-item" data-id="${app.id}">
+        <div class="app-grid-item${editMode ? ' wiggle' : ''}" data-id="${app.id}">
           <button class="fav-btn ${app.favourited ? 'active' : ''}" data-fav-id="${app.id}">
             ${bookmarkSVG(!!app.favourited)}
           </button>
@@ -1912,8 +2063,6 @@ function renderApps() {
     dots.innerHTML = pages.map((_, i) => `
       <div class="page-dot${i === 0 ? ' active' : ''}" data-page="${i}"></div>
     `).join('');
-
-    // Update dots on scroll
     grid.addEventListener('scroll', () => {
       const pageWidth = grid.offsetWidth;
       const currentPage = Math.round(grid.scrollLeft / pageWidth);
@@ -1926,7 +2075,12 @@ function renderApps() {
   }
 
   grid.querySelectorAll('.app-grid-item').forEach(el => {
-    el.addEventListener('click', () => openDeploy(el.dataset.id));
+    const id = el.dataset.id;
+    setupDrag(el, id);
+    el.addEventListener('click', (e) => {
+      if (editMode) return;
+      openDeploy(id);
+    });
   });
 
   grid.querySelectorAll('.fav-btn').forEach(btn => {
@@ -1935,6 +2089,36 @@ function renderApps() {
 
   renderFavourites();
   renderRecent();
+}
+
+// ── Notifications ──
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied') return false;
+  const result = await Notification.requestPermission();
+  return result === 'granted';
+}
+
+async function pollUntilLive(url, appName, maxAttempts = 12) {
+  const granted = await requestNotificationPermission();
+  if (!granted) return;
+
+  let attempts = 0;
+  const interval = setInterval(async () => {
+    attempts++;
+    try {
+      const res = await fetch(url + '?cachebust=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
+      if (res.ok) {
+        clearInterval(interval);
+        new Notification('Push — Deploy Complete', {
+          body: `${appName} is live and updated ✓`,
+          icon: '/push/icon.png'
+        });
+      }
+    } catch (e) { /* still building */ }
+    if (attempts >= maxAttempts) clearInterval(interval);
+  }, 30000); // poll every 30s
 }
 
 // ── Open deploy view ──
@@ -2192,6 +2376,9 @@ async function deploy() {
     };
     document.getElementById('resultWrap').classList.add('visible');
     showToast('Deployed ✓');
+
+    // Start polling for GitHub Pages rebuild notification
+    pollUntilLive(liveUrl, app.name);
 
   } catch (err) {
     for (let i = 1; i <= 4; i++) {

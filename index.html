@@ -329,12 +329,33 @@ body {
 .fav-btn.active { opacity: 1; }
 .fav-btn svg { display: block; }
 
-/* App grid */
-.app-grid {
+/* App grid — paged swipe */
+.app-grid-wrapper {
+  position: relative;
+  margin-bottom: 12px;
+  overflow: hidden;
+  margin: 0 -24px 8px;
+}
+
+.app-grid-pages {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.app-grid-pages::-webkit-scrollbar { display: none; }
+
+.app-grid-page {
+  min-width: 100%;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, auto);
   gap: 10px;
-  margin-bottom: 12px;
+  padding: 0 24px;
+  scroll-snap-align: start;
+  box-sizing: border-box;
 }
 
 .app-grid-item {
@@ -371,6 +392,27 @@ body {
 }
 
 .app-grid-repo { display: none; }
+
+/* Page dots */
+.page-dots {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  padding: 10px 0 16px;
+}
+
+.page-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  transition: background 0.2s, transform 0.2s;
+}
+
+.page-dot.active {
+  background: #ffffff;
+  transform: scale(1.2);
+}
 
 /* List view (search results) */
 .app-list {
@@ -509,8 +551,6 @@ body {
 
 .live-url-bar:active { border-color: var(--border-strong); }
 
-.live-url-icon { font-size: 14px; flex-shrink: 0; }
-
 .live-url-text {
   flex: 1;
   font-family: 'DM Mono', monospace;
@@ -520,12 +560,6 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.live-url-arrow {
-  font-size: 13px;
-  color: var(--muted);
-  flex-shrink: 0;
 }
 
 /* Drop zone */
@@ -544,13 +578,6 @@ body {
   border-color: var(--accent);
   border-style: solid;
   background: var(--accent-light);
-}
-
-.drop-icon {
-  font-size: 32px;
-  margin-bottom: 12px;
-  display: block;
-  opacity: 0.6;
 }
 
 .drop-title {
@@ -575,8 +602,8 @@ input[type="file"] { display: none; }
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  background: var(--green-bg);
-  border: 1.5px solid var(--green);
+  background: var(--surface);
+  border: 1.5px solid var(--border-strong);
   border-radius: var(--radius-sm);
   margin-bottom: 24px;
 }
@@ -587,7 +614,7 @@ input[type="file"] { display: none; }
   flex: 1;
   font-family: 'DM Mono', monospace;
   font-size: 12px;
-  color: var(--green);
+  color: var(--text);
   font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
@@ -597,7 +624,7 @@ input[type="file"] { display: none; }
 .file-pill-clear {
   background: none;
   border: none;
-  color: var(--green);
+  color: var(--muted);
   cursor: pointer;
   font-size: 16px;
   padding: 0;
@@ -867,6 +894,10 @@ input[type="file"] { display: none; }
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 20px;
+  max-height: 180px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 2px;
 }
 
 .emoji-opt {
@@ -1343,9 +1374,10 @@ input[type="file"] { display: none; }
 
       <!-- All apps grid -->
       <div class="section-label" id="allAppsLabel">Your Apps</div>
-      <div class="app-grid" id="appGrid">
-        <div class="empty-state">No apps yet.<br>Add your first below.</div>
+      <div class="app-grid-wrapper">
+        <div class="app-grid-pages" id="appGrid"></div>
       </div>
+      <div class="page-dots" id="pageDots"></div>
 
       <button class="add-btn" id="addAppBtn">
         <span>+</span>
@@ -1378,20 +1410,29 @@ input[type="file"] { display: none; }
     <div class="deploy-app-repo" id="deployAppRepo">username/repo</div>
 
     <a class="live-url-bar" id="liveUrlBar" href="#" target="_blank">
-      <span class="live-url-icon">🌐</span>
+      <svg width="14" height="14" viewBox="0 0 15 15" fill="none" style="flex-shrink:0;opacity:0.5">
+        <path d="M7.5 1a6.5 6.5 0 100 13A6.5 6.5 0 007.5 1zM1.05 8h2.47a11.1 11.1 0 00.91 3.5A5.51 5.51 0 011.05 8zm0-1a5.51 5.51 0 013.38-3.5A11.1 11.1 0 004.52 7H1.05zM7 7H4.53a10.1 10.1 0 01.86-3.24C5.92 2.87 6.67 2 7 2v5zm0 1v5c-.33 0-1.08-.87-1.61-1.76A10.1 10.1 0 014.53 8H7zm1 5V8h2.47a10.1 10.1 0 01-.86 3.24C9.08 12.13 8.33 13 8 13zm0-6V2c.33 0 1.08.87 1.61 1.76A10.1 10.1 0 0110.47 7H8zm1.57 4.5A11.1 11.1 0 0010.48 8h2.47a5.51 5.51 0 01-3.38 3.5zm3.38-4.5h-2.47a11.1 11.1 0 00-.91-3.5A5.51 5.51 0 0112.95 7z" fill="currentColor" style="color:#ffffff"/>
+      </svg>
       <span class="live-url-text" id="liveUrlText">—</span>
-      <span class="live-url-arrow">↗</span>
+      <svg width="11" height="11" viewBox="0 0 15 15" fill="none" style="flex-shrink:0;opacity:0.4">
+        <path d="M3 2h9a1 1 0 011 1v9M13 2L2 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:#ffffff"/>
+      </svg>
     </a>
 
     <input type="file" id="fileInput" accept=".zip">
     <div class="drop-zone" id="dropZone">
-      <span class="drop-icon">📦</span>
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style="margin:0 auto 12px;display:block;opacity:0.4">
+        <path d="M12 3v13M7 8l5-5 5 5M5 21h14" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
       <div class="drop-title">Select ZIP file</div>
       <div class="drop-sub">Tap to browse · from Files app</div>
     </div>
 
     <div class="file-pill" id="filePill">
-      <span style="font-size:16px">📦</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;opacity:0.5">
+        <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M13 2v7h7" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>
       <span class="file-pill-name" id="filePillName">—</span>
       <button class="file-pill-clear" id="filePillClear">✕</button>
     </div>
@@ -1436,6 +1477,10 @@ input[type="file"] { display: none; }
     <div class="sheet-handle"></div>
     <div class="sheet-title">Connect Platform</div>
     <div class="field">
+      <label>GitHub Username</label>
+      <input type="text" id="globalUsernameInput" placeholder="your-username" autocapitalize="none">
+    </div>
+    <div class="field">
       <label>Access Token</label>
       <input type="password" id="tokenInput" placeholder="Paste your token here">
     </div>
@@ -1463,11 +1508,6 @@ input[type="file"] { display: none; }
     <div class="field">
       <label>Icon</label>
       <div class="emoji-row" id="emojiRow"></div>
-    </div>
-
-    <div class="field">
-      <label>GitHub Username</label>
-      <input type="text" id="appUsernameInput" placeholder="your-username">
     </div>
 
     <!-- Create repo toggle (new apps only) -->
@@ -1533,11 +1573,33 @@ const store = {
 // ── State ──
 let apps = store.get('push_apps') || [];
 let token = store.get('push_token') || '';
+let globalUsername = store.get('push_username') || '';
 let currentAppId = null;
 let selectedFile = null;
 let editingAppId = null;
 let selectedEmoji = '📱';
-const EMOJIS = ['📱','⚽','💪','📊','🏃','🎯','📝','🏋️','🎨','🌱','🎵','📅','🏆','💡','🔥','⭐'];
+const EMOJIS = [
+  // Sports & Fitness
+  '⚽','🏀','🏈','⚾','🎾','🏐','🏉','🎱','🏓','🏸','🥊','🏋️','🤸','🏃','🚴','🧘','🏊','⛷️','🎿','🏆',
+  // Health & Life
+  '💪','❤️','🧠','🍎','🥗','💊','🩺','🛌','⚖️','🧬',
+  // Productivity & Work
+  '📝','📊','📈','📅','✅','🎯','⏰','📌','🗂️','💼','📋','🖥️','💻','⌨️','🖨️',
+  // Finance & Shopping
+  '💰','💳','🏦','📉','🛒','🧾','💹','🪙','💵','📦',
+  // Creative & Media
+  '🎨','🎵','🎬','📸','🎤','🎧','✏️','📖','🎭','🖌️',
+  // Travel & Places
+  '✈️','🗺️','🏖️','🏔️','🚗','🏠','🌍','⛺','🚢','🗼',
+  // Food & Drink
+  '🍕','🍔','☕','🍜','🍣','🥤','🍷','🧁','🥑','🍳',
+  // Nature & Animals
+  '🌱','🌸','🐶','🐱','🦁','🌊','⚡','🌙','☀️','🔥',
+  // Tech & Tools
+  '🔧','⚙️','🔑','🛡️','📡','🤖','💡','🔭','🧪','🚀',
+  // Misc
+  '📱','🎮','🎲','🧩','🎁','🏡','👨‍👩‍👧','📣','🌈','⭐'
+];
 
 // ── Toast ──
 function showToast(msg) {
@@ -1557,10 +1619,10 @@ function showView(id) {
 function updateTokenStatus() {
   const status = document.getElementById('platformStatus');
   if (!status) return;
-  if (token) {
+  if (token && globalUsername) {
     status.innerHTML = `
       <div class="platform-status-dot ok"></div>
-      <span class="platform-status-text">GitHub connected</span>
+      <span class="platform-status-text">GitHub · ${globalUsername}</span>
     `;
   } else {
     status.innerHTML = `
@@ -1706,26 +1768,57 @@ function renderFavourites() {
 function renderApps() {
   const grid = document.getElementById('appGrid');
   const label = document.getElementById('allAppsLabel');
+  const dots = document.getElementById('pageDots');
 
   if (!apps.length) {
-    grid.innerHTML = '<div class="empty-state">No apps yet.<br>Add your first below.</div>';
+    grid.innerHTML = '<div class="app-grid-page" style="display:flex;align-items:center;justify-content:center;min-height:120px"><div class="empty-state">No apps yet.<br>Add your first below.</div></div>';
     label.style.display = 'none';
+    dots.style.display = 'none';
     document.getElementById('recentSection').style.display = 'none';
     document.getElementById('favSection').style.display = 'none';
     return;
   }
 
   label.style.display = 'block';
-  grid.innerHTML = apps.map(app => `
-    <div class="app-grid-item" data-id="${app.id}">
-      <button class="fav-btn ${app.favourited ? 'active' : ''}" data-fav-id="${app.id}">
-        ${bookmarkSVG(!!app.favourited)}
-      </button>
-      <span class="app-grid-emoji">${app.emoji}</span>
-      <div class="app-grid-name">${app.name}</div>
-      <div class="app-grid-repo">${app.repo}</div>
+  const APPS_PER_PAGE = 9;
+  const pages = [];
+  for (let i = 0; i < apps.length; i += APPS_PER_PAGE) {
+    pages.push(apps.slice(i, i + APPS_PER_PAGE));
+  }
+
+  grid.innerHTML = pages.map((page, pi) => `
+    <div class="app-grid-page" data-page="${pi}">
+      ${page.map(app => `
+        <div class="app-grid-item" data-id="${app.id}">
+          <button class="fav-btn ${app.favourited ? 'active' : ''}" data-fav-id="${app.id}">
+            ${bookmarkSVG(!!app.favourited)}
+          </button>
+          <span class="app-grid-emoji">${app.emoji}</span>
+          <div class="app-grid-name">${app.name}</div>
+          <div class="app-grid-repo">${app.repo}</div>
+        </div>
+      `).join('')}
     </div>
   `).join('');
+
+  // Page dots
+  if (pages.length > 1) {
+    dots.style.display = 'flex';
+    dots.innerHTML = pages.map((_, i) => `
+      <div class="page-dot${i === 0 ? ' active' : ''}" data-page="${i}"></div>
+    `).join('');
+
+    // Update dots on scroll
+    grid.addEventListener('scroll', () => {
+      const pageWidth = grid.offsetWidth;
+      const currentPage = Math.round(grid.scrollLeft / pageWidth);
+      dots.querySelectorAll('.page-dot').forEach((dot, i) => {
+        dot.classList.toggle('active', i === currentPage);
+      });
+    }, { passive: true });
+  } else {
+    dots.style.display = 'none';
+  }
 
   grid.querySelectorAll('.app-grid-item').forEach(el => {
     el.addEventListener('click', () => openDeploy(el.dataset.id));
@@ -1978,6 +2071,7 @@ document.getElementById('backBtn').addEventListener('click', () => {
 
 // ── Token sheet ──
 function openTokenSheet() {
+  document.getElementById('globalUsernameInput').value = globalUsername;
   document.getElementById('tokenInput').value = token;
   document.getElementById('tokenSheet').classList.add('open');
 }
@@ -1987,13 +2081,17 @@ document.getElementById('tokenCancel').addEventListener('click', () => {
   document.getElementById('tokenSheet').classList.remove('open');
 });
 document.getElementById('tokenSave').addEventListener('click', () => {
+  const username = document.getElementById('globalUsernameInput').value.trim();
   const val = document.getElementById('tokenInput').value.trim();
+  if (!username) { showToast('Enter your GitHub username'); return; }
   if (!val) { showToast('Enter a token'); return; }
+  globalUsername = username;
   token = val;
+  store.set('push_username', globalUsername);
   store.set('push_token', token);
   document.getElementById('tokenSheet').classList.remove('open');
   updateTokenStatus();
-  showToast('Token saved');
+  showToast('Settings saved');
 });
 
 // ── Emoji picker ──
@@ -2025,10 +2123,6 @@ document.getElementById('createRepoToggleRow').addEventListener('click', () => {
 document.getElementById('appRepoAutoInput').addEventListener('input', (e) => {
   const slug = slugify(e.target.value);
   document.getElementById('repoPreviewName').textContent = slug || 'repo';
-});
-
-document.getElementById('appUsernameInput').addEventListener('input', (e) => {
-  document.getElementById('repoPreviewUser').textContent = e.target.value.trim() || 'username';
 });
 
 function slugify(str) {
@@ -2084,7 +2178,6 @@ function openAddSheet() {
   selectedEmoji = '📱';
   document.getElementById('appSheetTitle').textContent = 'New App';
   document.getElementById('appNameInput').value = '';
-  document.getElementById('appUsernameInput').value = '';
   document.getElementById('appRepoInput').value = '';
   document.getElementById('appRepoAutoInput').value = '';
   document.getElementById('appBranchInput').value = 'main';
@@ -2094,7 +2187,7 @@ function openAddSheet() {
   document.getElementById('createRepoToggle').classList.remove('on');
   document.getElementById('manualRepoSection').style.display = 'block';
   document.getElementById('autoRepoSection').style.display = 'none';
-  document.getElementById('repoPreviewUser').textContent = 'username';
+  document.getElementById('repoPreviewUser').textContent = globalUsername || 'username';
   document.getElementById('repoPreviewName').textContent = 'repo';
   renderEmojiPicker();
   document.getElementById('appSheet').classList.add('open');
@@ -2108,12 +2201,11 @@ function openEditSheet(id) {
   selectedEmoji = app.emoji || '📱';
   document.getElementById('appSheetTitle').textContent = 'Edit App';
   document.getElementById('appNameInput').value = app.name;
-  document.getElementById('appUsernameInput').value = app.username;
   document.getElementById('appRepoInput').value = app.repo;
   document.getElementById('appBranchInput').value = app.branch || 'main';
   document.getElementById('deleteSection').style.display = 'block';
   document.getElementById('appSave').textContent = 'Update App';
-  document.getElementById('createRepoSection').style.display = 'none'; // hide when editing
+  document.getElementById('createRepoSection').style.display = 'none';
   document.getElementById('manualRepoSection').style.display = 'block';
   renderEmojiPicker();
   document.getElementById('appSheet').classList.add('open');
@@ -2130,7 +2222,7 @@ document.getElementById('appCancel').addEventListener('click', () => {
 
 document.getElementById('appSave').addEventListener('click', async () => {
   const name = document.getElementById('appNameInput').value.trim();
-  const username = document.getElementById('appUsernameInput').value.trim();
+  const username = globalUsername;
   const branch = document.getElementById('appBranchInput').value.trim() || 'main';
   let repo;
 
@@ -2142,7 +2234,10 @@ document.getElementById('appSave').addEventListener('click', async () => {
     repo = document.getElementById('appRepoInput').value.trim();
   }
 
-  if (!name || !username || !repo) { showToast('Fill in all fields'); return; }
+  if (!name || !username || !repo) {
+    if (!username) { showToast('Add your GitHub username in settings first'); return; }
+    showToast('Fill in all fields'); return;
+  }
   if (!token && createRepoEnabled) { showToast('Connect a platform first'); return; }
 
   const saveBtn = document.getElementById('appSave');

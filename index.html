@@ -2570,8 +2570,7 @@ document.getElementById('appSave').addEventListener('click', async () => {
   saveBtn.textContent = editingAppId ? 'Update App' : 'Save App';
   document.getElementById('appSheet').classList.remove('open');
   syncConfigToGitHub();
-
-document.getElementById('appDelete').addEventListener('click', () => {
+});
   if (!editingAppId) return;
   apps = apps.filter(a => a.id !== editingAppId);
   store.set('push_apps', apps);
@@ -2582,7 +2581,7 @@ document.getElementById('appDelete').addEventListener('click', () => {
   syncConfigToGitHub();
 });
 
-// Close sheets on overlay tap
+document.getElementById('appDelete').addEventListener('click', () => {
 ['tokenSheet', 'appSheet'].forEach(id => {
   document.getElementById(id).addEventListener('click', (e) => {
     if (e.target === document.getElementById(id)) {

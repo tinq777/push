@@ -1,0 +1,2268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Push">
+<meta name="theme-color" content="#f8f8f6">
+<title>Push</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --border: #222222;
+  --border-strong: #333333;
+  --text: #f0f0f0;
+  --muted: #555555;
+  --accent: #f0f0f0;
+  --accent-light: #1a1a1a;
+  --green: #00c969;
+  --green-bg: #0a1f14;
+  --red: #ff4444;
+  --red-bg: #1f0a0a;
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  height: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Views ── */
+.view {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.view.active { display: flex; }
+
+/* ── Shared header ── */
+.header {
+  padding: 56px 24px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.header-title {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.header {
+  padding: 56px 24px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  margin-bottom: 4px;
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--text);
+}
+
+.icon-btn:active { transform: scale(0.94); }
+
+/* ── Home View ── */
+#homeView .scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px 120px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.wordmark {
+  font-size: 38px;
+  font-weight: 300;
+  letter-spacing: -2px;
+  line-height: 1;
+  margin-bottom: 0;
+  color: var(--text);
+}
+
+.wordmark strong {
+  font-weight: 800;
+  letter-spacing: -2px;
+  color: #ffffff;
+}
+
+.wordmark em {
+  font-style: italic;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+.platform-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  min-height: 14px;
+}
+
+.platform-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+
+.platform-status-dot.ok { background: #00c969; }
+
+.platform-status-text {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+  letter-spacing: 0.02em;
+}
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 20px;
+  transition: border-color 0.15s;
+}
+
+.search-bar:focus-within { border-color: var(--border-strong); }
+
+.search-icon { font-size: 14px; opacity: 0.4; flex-shrink: 0; }
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.search-input::placeholder { color: var(--muted); }
+
+.search-clear {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  display: none;
+  line-height: 1;
+}
+
+/* Section label */
+.section-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+/* Recent row — horizontal scroll */
+.recent-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  margin: 0 -24px 24px;
+  padding: 0 24px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.recent-row::-webkit-scrollbar { display: none; }
+
+.recent-card {
+  flex-shrink: 0;
+  width: 100px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  user-select: none;
+}
+
+.recent-card:active {
+  border-color: var(--border-strong);
+  transform: scale(0.97);
+}
+
+.recent-emoji {
+  font-size: 28px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.recent-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+  margin-top: 3px;
+}
+
+/* Favourites row */
+.fav-section { margin-bottom: 24px; }
+
+.fav-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  margin: 0 -24px;
+  padding: 0 24px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.fav-row::-webkit-scrollbar { display: none; }
+
+.fav-card {
+  flex-shrink: 0;
+  width: 90px;
+  background: var(--surface);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 14px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  user-select: none;
+  position: relative;
+}
+
+.fav-card:active { transform: scale(0.97); }
+
+.fav-card-emoji {
+  font-size: 26px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.fav-card-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Bookmark icon on grid card */
+.app-grid-item {
+  position: relative;
+}
+
+.fav-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.3;
+  transition: opacity 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fav-btn.active { opacity: 1; }
+
+.fav-btn svg { display: block; }
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.app-grid-item {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+  min-width: 0;
+}
+
+.app-grid-item:active {
+  border-color: var(--border-strong);
+  transform: scale(0.98);
+}
+
+.app-grid-emoji {
+  font-size: 28px;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.app-grid-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-grid-repo {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* List view (search results) */
+.app-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.app-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.app-item:active {
+  border-color: var(--border-strong);
+  transform: scale(0.99);
+}
+
+.app-emoji {
+  font-size: 22px;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-light);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.app-info { flex: 1; min-width: 0; }
+
+.app-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.app-repo {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 300;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-chevron { color: var(--border-strong); font-size: 16px; flex-shrink: 0; }
+
+.empty-state {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  grid-column: 1 / -1;
+}
+
+.no-results {
+  padding: 32px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Add app button */
+.add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 16px;
+  background: none;
+  color: #ffffff;
+  border: 1.5px solid #ffffff;
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 16px;
+}
+
+.add-btn:active { opacity: 0.7; transform: scale(0.99); }
+
+/* ── Deploy View ── */
+#deployView .scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px 120px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.deploy-app-name {
+  font-size: 28px;
+  font-weight: 300;
+  letter-spacing: -1px;
+  margin-bottom: 4px;
+}
+
+.deploy-app-repo {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 300;
+  margin-bottom: 32px;
+}
+
+/* Live URL bar */
+.live-url-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 24px;
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+
+.live-url-bar:active { border-color: var(--border-strong); }
+
+.live-url-icon { font-size: 14px; flex-shrink: 0; }
+
+.live-url-text {
+  flex: 1;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 300;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.live-url-arrow {
+  font-size: 13px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* Drop zone */
+.drop-zone {
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 12px;
+  background: var(--surface);
+}
+
+.drop-zone.drag-over, .drop-zone.has-file {
+  border-color: var(--accent);
+  border-style: solid;
+  background: var(--accent-light);
+}
+
+.drop-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+  display: block;
+  opacity: 0.6;
+}
+
+.drop-title {
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.drop-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+input[type="file"] { display: none; }
+
+/* File pill */
+.file-pill {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--green-bg);
+  border: 1.5px solid var(--green);
+  border-radius: var(--radius-sm);
+  margin-bottom: 24px;
+}
+
+.file-pill.visible { display: flex; }
+
+.file-pill-name {
+  flex: 1;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--green);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-pill-clear {
+  background: none;
+  border: none;
+  color: var(--green);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  opacity: 0.6;
+  line-height: 1;
+}
+
+/* Progress steps */
+.progress-wrap {
+  display: none;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 24px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.progress-wrap.visible { display: flex; }
+
+.progress-step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+}
+
+.progress-step:last-child { border-bottom: none; }
+.progress-step.active { background: var(--accent-light); }
+.progress-step.done { background: var(--green-bg); }
+.progress-step.err { background: var(--red-bg); }
+
+.step-indicator {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.progress-step.active .step-indicator {
+  border-color: var(--accent);
+  color: var(--accent);
+  animation: breathe 1.2s ease-in-out infinite;
+}
+
+.progress-step.done .step-indicator {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+  font-size: 13px;
+}
+
+.progress-step.err .step-indicator {
+  background: var(--red);
+  border-color: var(--red);
+  color: white;
+  font-size: 13px;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.step-label {
+  font-size: 13px;
+  color: var(--muted);
+  transition: color 0.2s;
+}
+
+.progress-step.active .step-label { color: var(--text); font-weight: 500; }
+.progress-step.done .step-label { color: var(--green); }
+.progress-step.err .step-label { color: var(--red); }
+
+/* Result */
+.result-wrap {
+  display: none;
+  padding: 20px;
+  background: var(--green-bg);
+  border: 1.5px solid var(--green);
+  border-radius: var(--radius);
+  margin-bottom: 24px;
+}
+
+.result-wrap.visible { display: block; }
+
+.result-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 8px;
+}
+
+.result-url {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: var(--green);
+  font-weight: 400;
+  word-break: break-all;
+  margin-bottom: 14px;
+}
+
+.result-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.result-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  text-align: center;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.result-btn.primary {
+  background: var(--green);
+  color: white;
+  border: none;
+}
+
+.result-btn.secondary {
+  background: none;
+  color: var(--green);
+  border: 1.5px solid var(--green);
+}
+
+.result-btn:active { opacity: 0.7; }
+
+/* ── Bottom CTA ── */
+.bottom-cta {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 24px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+  pointer-events: none;
+}
+
+.cta-btn {
+  width: 100%;
+  padding: 16px;
+  background: #ffffff;
+  color: #000000;
+  border: none;
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  pointer-events: all;
+  letter-spacing: -0.2px;
+}
+
+.cta-btn:disabled {
+  background: var(--border-strong);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.cta-btn:not(:disabled):active { transform: scale(0.98); opacity: 0.9; }
+
+/* ── Settings / Add App Sheet ── */
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 50;
+  display: none;
+  align-items: flex-end;
+  backdrop-filter: blur(2px);
+}
+
+.sheet-overlay.open { display: flex; }
+
+.sheet {
+  width: 100%;
+  background: var(--surface);
+  border-radius: 24px 24px 0 0;
+  padding: 0 24px;
+  padding-bottom: max(32px, env(safe-area-inset-bottom));
+  max-height: 92vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border-strong);
+  border-radius: 2px;
+  margin: 12px auto 24px;
+}
+
+.sheet-title {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  margin-bottom: 24px;
+}
+
+/* Form fields */
+.field {
+  margin-bottom: 16px;
+}
+
+.field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.field input {
+  width: 100%;
+  padding: 14px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+}
+
+.field input:focus { border-color: var(--accent); }
+.field input::placeholder { color: var(--muted); }
+
+.emoji-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.emoji-opt {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.emoji-opt.selected {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.sheet-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.sheet-btn {
+  flex: 1;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  border: none;
+}
+
+.sheet-btn:active { opacity: 0.7; }
+
+.sheet-btn.primary { background: #ffffff; color: #000000; }
+.sheet-btn.ghost { background: var(--surface); color: var(--muted); border: 1.5px solid var(--border); }
+.sheet-btn.danger { background: var(--red-bg); color: var(--red); }
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 20px 0;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--text);
+  color: white;
+  padding: 10px 18px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  transition: all 0.25s;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 100;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Hint */
+.pwa-hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 12px 0 0;
+  letter-spacing: 0.02em;
+}
+
+/* ── Onboarding ── */
+#onboardView {
+  background: var(--bg);
+}
+
+#onboardView .scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px 140px;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+}
+
+.onboard-slides {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.onboard-slide {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  animation: fadeSlide 0.3s ease;
+}
+
+.onboard-slide.active { display: flex; }
+
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.onboard-step-indicator {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 48px;
+}
+
+.onboard-pip {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-strong);
+  flex: 1;
+  transition: background 0.3s;
+}
+
+.onboard-pip.active { background: var(--accent); }
+
+.onboard-icon {
+  font-size: 52px;
+  margin-bottom: 24px;
+  display: block;
+  line-height: 1;
+}
+
+.onboard-title {
+  font-size: 32px;
+  font-weight: 300;
+  letter-spacing: -1.5px;
+  line-height: 1.1;
+  margin-bottom: 16px;
+  color: var(--text);
+}
+
+.onboard-title strong {
+  font-weight: 500;
+}
+
+.onboard-body {
+  font-size: 16px;
+  color: var(--muted);
+  line-height: 1.6;
+  font-weight: 300;
+  margin-bottom: 32px;
+}
+
+.onboard-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.onboard-step-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.onboard-step-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-light);
+  border: 1.5px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.onboard-step-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.onboard-step-text span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 300;
+}
+
+.onboard-note {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: var(--green-bg);
+  border: 1.5px solid var(--green);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--green);
+  line-height: 1.5;
+}
+
+.onboard-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 24px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onboard-next-btn {
+  width: 100%;
+  padding: 16px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  letter-spacing: -0.2px;
+  transition: opacity 0.15s;
+}
+
+.onboard-next-btn:active { opacity: 0.85; }
+
+.onboard-skip-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px;
+  text-align: center;
+}
+
+/* ── Toggle ── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.toggle-row:active { border-color: var(--border-strong); }
+
+.toggle-info { flex: 1; }
+
+.toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.toggle-sub {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+  font-family: 'DM Mono', monospace;
+  font-weight: 300;
+}
+
+.toggle {
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  background: var(--border-strong);
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.toggle.on { background: var(--accent); }
+
+.toggle-knob {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.toggle.on .toggle-knob { transform: translateX(18px); }
+
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ ONBOARDING VIEW ══════════════════ -->
+<div class="view" id="onboardView">
+  <div class="header">
+    <span class="header-title">Push</span>
+    <div style="width:36px"></div>
+  </div>
+
+  <div class="scroll">
+    <div class="onboard-slides">
+
+      <!-- Step indicators -->
+      <div class="onboard-step-indicator">
+        <div class="onboard-pip active" id="pip0"></div>
+        <div class="onboard-pip" id="pip1"></div>
+        <div class="onboard-pip" id="pip2"></div>
+      </div>
+
+      <!-- Slide 1: Welcome -->
+      <div class="onboard-slide active" id="slide0">
+        <span class="onboard-icon">🚀</span>
+        <div class="onboard-title">Deploy your<br><strong>Claude apps</strong><br>from your phone.</div>
+        <div class="onboard-body">Push connects to your GitHub repos and publishes your AI-built apps live — in one tap. No laptop. No terminal. No fuss.</div>
+        <div class="onboard-steps">
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">1</div>
+            <div class="onboard-step-text">Ask Claude to build your app
+              <span>Get a ZIP file from the chat</span>
+            </div>
+          </div>
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">2</div>
+            <div class="onboard-step-text">Open Push, select the ZIP
+              <span>Pick the file from your Files app</span>
+            </div>
+          </div>
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">3</div>
+            <div class="onboard-step-text">Tap Deploy
+              <span>Your app is live on GitHub Pages</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 2: Add to home screen -->
+      <div class="onboard-slide" id="slide1">
+        <span class="onboard-icon">📲</span>
+        <div class="onboard-title">Install Push<br>on your<br><strong>home screen.</strong></div>
+        <div class="onboard-body">Push works as a PWA — it lives on your home screen just like a native app, no App Store needed.</div>
+        <div class="onboard-steps">
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">1</div>
+            <div class="onboard-step-text">Tap the Share button in Safari
+              <span>The box with an arrow pointing up ↑</span>
+            </div>
+          </div>
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">2</div>
+            <div class="onboard-step-text">Tap "Add to Home Screen"
+              <span>Scroll down in the share sheet</span>
+            </div>
+          </div>
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">3</div>
+            <div class="onboard-step-text">Tap Add
+              <span>Push icon appears on your home screen</span>
+            </div>
+          </div>
+        </div>
+        <div class="onboard-note">💡 Already done? Skip this step — you're good.</div>
+      </div>
+
+      <!-- Slide 3: GitHub token -->
+      <div class="onboard-slide" id="slide2">
+        <span class="onboard-icon">🔑</span>
+        <div class="onboard-title">Connect<br>your<br><strong>GitHub.</strong></div>
+        <div class="onboard-body">Push needs a Personal Access Token to push files to your repos. It's stored only on your device — never sent anywhere else.</div>
+        <div class="onboard-steps">
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">1</div>
+            <div class="onboard-step-text">Go to GitHub.com → Settings
+              <span>Top right profile menu → Settings</span>
+            </div>
+          </div>
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">2</div>
+            <div class="onboard-step-text">Developer settings → Personal access tokens
+              <span>Choose "Tokens (classic)"</span>
+            </div>
+          </div>
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">3</div>
+            <div class="onboard-step-text">Generate new token — enable "repo" scope
+              <span>Copy the token — you'll paste it next</span>
+            </div>
+          </div>
+        </div>
+        <div class="onboard-note">🔒 Your token is stored in your device's local storage only. Push never sends it anywhere except directly to GitHub's API.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="onboard-bottom">
+    <button class="onboard-next-btn" id="onboardNextBtn">Get Started →</button>
+    <button class="onboard-skip-btn" id="onboardSkipBtn">Skip setup</button>
+  </div>
+</div>
+
+<!-- ══════════════════ HOME VIEW ══════════════════ -->
+<div class="view active" id="homeView">
+  <div class="header">
+    <div>
+      <span class="wordmark"><strong>Push</strong><em>.</em></span>
+      <div class="platform-status" id="platformStatus"></div>
+    </div>
+    <button class="icon-btn" id="globalSettingsBtn" title="Connect Platform">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <path d="M7.5 1a6.5 6.5 0 100 13A6.5 6.5 0 007.5 1zm0 2.5a1 1 0 110 2 1 1 0 010-2zm0 3.5c.55 0 1 .45 1 1v3a1 1 0 01-2 0V8c0-.55.45-1 1-1z" fill="currentColor"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="scroll">
+
+    <!-- Search -->
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="searchInput" type="text" placeholder="Search apps…">
+      <button class="search-clear" id="searchClear">✕</button>
+    </div>
+
+    <!-- Search results (shown when searching) -->
+    <div id="searchResults" style="display:none">
+      <div class="app-list" id="searchList"></div>
+    </div>
+
+    <!-- Normal home content -->
+    <div id="homeContent">
+      <!-- Favourites -->
+      <div id="favSection" class="fav-section" style="display:none">
+        <div class="section-label">Favourites</div>
+        <div class="fav-row" id="favRow"></div>
+      </div>
+
+      <!-- Recent -->
+      <div id="recentSection" style="display:none">
+        <div class="section-label">Recent</div>
+        <div class="recent-row" id="recentRow"></div>
+      </div>
+
+      <!-- All apps grid -->
+      <div class="section-label" id="allAppsLabel">Your Apps</div>
+      <div class="app-grid" id="appGrid">
+        <div class="empty-state">No apps yet.<br>Add your first below.</div>
+      </div>
+
+      <button class="add-btn" id="addAppBtn">
+        <span>+</span>
+        <span>Add App</span>
+      </button>
+
+      <div class="pwa-hint">Tip: Share → Add to Home Screen to install</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ DEPLOY VIEW ══════════════════ -->
+<div class="view" id="deployView">
+  <div class="header">
+    <button class="icon-btn" id="backBtn">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <path d="M8.84 2.16a.5.5 0 010 .707L4.707 7H13.5a.5.5 0 010 1H4.707l4.133 4.133a.5.5 0 11-.707.707l-5-5a.5.5 0 010-.707l5-5a.5.5 0 01.707 0z" fill="currentColor"/>
+      </svg>
+    </button>
+    <span class="header-title" id="deployHeaderTitle">Deploy</span>
+    <button class="icon-btn" id="editAppBtn" title="Edit">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <path d="M11.854.146a.5.5 0 00-.707 0l-10 10A.5.5 0 001 10.5V13.5a.5.5 0 00.5.5h3a.5.5 0 00.354-.146l10-10a.5.5 0 000-.707l-3-3zM2 13V11.207l9.5-9.5L13.293 3.5l-9.5 9.5H2z" fill="currentColor"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="scroll">
+    <div class="deploy-app-name" id="deployAppName">App Name</div>
+    <div class="deploy-app-repo" id="deployAppRepo">username/repo</div>
+
+    <a class="live-url-bar" id="liveUrlBar" href="#" target="_blank">
+      <span class="live-url-icon">🌐</span>
+      <span class="live-url-text" id="liveUrlText">—</span>
+      <span class="live-url-arrow">↗</span>
+    </a>
+
+    <input type="file" id="fileInput" accept=".zip">
+    <div class="drop-zone" id="dropZone">
+      <span class="drop-icon">📦</span>
+      <div class="drop-title">Select ZIP file</div>
+      <div class="drop-sub">Tap to browse · from Files app</div>
+    </div>
+
+    <div class="file-pill" id="filePill">
+      <span style="font-size:16px">📦</span>
+      <span class="file-pill-name" id="filePillName">—</span>
+      <button class="file-pill-clear" id="filePillClear">✕</button>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-step" id="ps1">
+        <div class="step-indicator">1</div>
+        <span class="step-label">Reading ZIP</span>
+      </div>
+      <div class="progress-step" id="ps2">
+        <div class="step-indicator">2</div>
+        <span class="step-label">Connecting to GitHub</span>
+      </div>
+      <div class="progress-step" id="ps3">
+        <div class="step-indicator">3</div>
+        <span class="step-label">Pushing files</span>
+      </div>
+      <div class="progress-step" id="ps4">
+        <div class="step-indicator">4</div>
+        <span class="step-label">Complete</span>
+      </div>
+    </div>
+
+    <div class="result-wrap" id="resultWrap">
+      <div class="result-label">Live at</div>
+      <div class="result-url" id="resultUrl">—</div>
+      <div class="result-actions">
+        <a class="result-btn primary" id="openUrlBtn" href="#" target="_blank">Open ↗</a>
+        <button class="result-btn secondary" id="copyUrlBtn">Copy URL</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-cta">
+    <button class="cta-btn" id="deployBtn" disabled>Deploy</button>
+  </div>
+</div>
+
+<!-- ══════════════════ TOKEN SHEET ══════════════════ -->
+<div class="sheet-overlay" id="tokenSheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Connect Platform</div>
+    <div class="field">
+      <label>Access Token</label>
+      <input type="password" id="tokenInput" placeholder="Paste your token here">
+    </div>
+    <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:20px;">
+      For GitHub: Settings → Developer settings → Personal access tokens → Generate new token. Enable <strong>repo</strong> scope. Your token is stored only on this device.
+    </p>
+    <div class="sheet-actions">
+      <button class="sheet-btn ghost" id="tokenCancel">Cancel</button>
+      <button class="sheet-btn primary" id="tokenSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ ADD / EDIT APP SHEET ══════════════════ -->
+<div class="sheet-overlay" id="appSheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="appSheetTitle">New App</div>
+
+    <div class="field">
+      <label>App Name</label>
+      <input type="text" id="appNameInput" placeholder="Soccer Tracker">
+    </div>
+
+    <div class="field">
+      <label>Icon</label>
+      <div class="emoji-row" id="emojiRow"></div>
+    </div>
+
+    <div class="field">
+      <label>GitHub Username</label>
+      <input type="text" id="appUsernameInput" placeholder="your-username">
+    </div>
+
+    <!-- Create repo toggle (new apps only) -->
+    <div id="createRepoSection">
+      <div class="toggle-row" id="createRepoToggleRow">
+        <div class="toggle-info">
+          <div class="toggle-label">Create GitHub repo for me</div>
+          <div class="toggle-sub">Push will create the repo and enable GitHub Pages automatically</div>
+        </div>
+        <div class="toggle" id="createRepoToggle">
+          <div class="toggle-knob"></div>
+        </div>
+      </div>
+
+      <!-- Manual repo name (shown when toggle is off) -->
+      <div id="manualRepoSection" class="field">
+        <label>Repository Name</label>
+        <input type="text" id="appRepoInput" placeholder="soccer-tracker">
+      </div>
+
+      <!-- Auto repo name (shown when toggle is on) -->
+      <div id="autoRepoSection" style="display:none">
+        <div class="field">
+          <label>Repository Name</label>
+          <input type="text" id="appRepoAutoInput" placeholder="soccer-tracker">
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;font-family:'DM Mono',monospace;font-weight:300;">
+            Will create: github.com/<span id="repoPreviewUser">username</span>/<span id="repoPreviewName">repo</span>
+          </div>
+        </div>
+        <div class="onboard-note" style="margin-bottom:16px;">
+          🔒 Repo will be <strong>public</strong> so GitHub Pages works on the free plan. Only the URL is needed to access your app.
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Branch</label>
+      <input type="text" id="appBranchInput" placeholder="main">
+    </div>
+
+    <div class="sheet-actions">
+      <button class="sheet-btn ghost" id="appCancel">Cancel</button>
+      <button class="sheet-btn primary" id="appSave">Save App</button>
+    </div>
+
+    <div id="deleteSection" style="display:none">
+      <div class="divider"></div>
+      <button class="sheet-btn danger" id="appDelete" style="width:100%">Delete App</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Storage helpers ──
+const store = {
+  get: (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+};
+
+// ── State ──
+let apps = store.get('push_apps') || [];
+let token = store.get('push_token') || '';
+let currentAppId = null;
+let selectedFile = null;
+let editingAppId = null;
+let selectedEmoji = '📱';
+const EMOJIS = ['📱','⚽','💪','📊','🏃','🎯','📝','🏋️','🎨','🌱','🎵','📅','🏆','💡','🔥','⭐'];
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── Views ──
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── Platform status ──
+function updateTokenStatus() {
+  const status = document.getElementById('platformStatus');
+  if (!status) return;
+  if (token) {
+    status.innerHTML = `
+      <div class="platform-status-dot ok"></div>
+      <span class="platform-status-text">GitHub connected</span>
+    `;
+  } else {
+    status.innerHTML = `
+      <div class="platform-status-dot"></div>
+      <span class="platform-status-text">No platform connected</span>
+    `;
+  }
+}
+
+// ── Search ──
+let searchQuery = '';
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  searchQuery = e.target.value.trim().toLowerCase();
+  document.getElementById('searchClear').style.display = searchQuery ? 'block' : 'none';
+  if (searchQuery) {
+    document.getElementById('searchResults').style.display = 'block';
+    document.getElementById('homeContent').style.display = 'none';
+    renderSearchResults();
+  } else {
+    document.getElementById('searchResults').style.display = 'none';
+    document.getElementById('homeContent').style.display = 'block';
+  }
+});
+
+document.getElementById('searchClear').addEventListener('click', () => {
+  document.getElementById('searchInput').value = '';
+  searchQuery = '';
+  document.getElementById('searchClear').style.display = 'none';
+  document.getElementById('searchResults').style.display = 'none';
+  document.getElementById('homeContent').style.display = 'block';
+});
+
+function renderSearchResults() {
+  const results = apps.filter(a =>
+    a.name.toLowerCase().includes(searchQuery) ||
+    a.repo.toLowerCase().includes(searchQuery)
+  );
+  const list = document.getElementById('searchList');
+  if (!results.length) {
+    list.innerHTML = '<div class="no-results">No apps match "' + searchQuery + '"</div>';
+    return;
+  }
+  list.innerHTML = results.map(app => `
+    <div class="app-item" data-id="${app.id}">
+      <div class="app-emoji">${app.emoji}</div>
+      <div class="app-info">
+        <div class="app-name">${app.name}</div>
+        <div class="app-repo">${app.username}/${app.repo}</div>
+      </div>
+      <div class="app-chevron">›</div>
+    </div>
+  `).join('');
+  list.querySelectorAll('.app-item').forEach(el => {
+    el.addEventListener('click', () => openDeploy(el.dataset.id));
+  });
+}
+
+// ── Render recent ──
+function renderRecent() {
+  const recent = store.get('push_recent') || [];
+  const section = document.getElementById('recentSection');
+  if (!recent.length) { section.style.display = 'none'; return; }
+
+  const recentApps = recent
+    .map(r => ({ app: apps.find(a => a.id === r.id), time: r.time }))
+    .filter(r => r.app)
+    .slice(0, 5);
+
+  if (!recentApps.length) { section.style.display = 'none'; return; }
+
+  section.style.display = 'block';
+  document.getElementById('recentRow').innerHTML = recentApps.map(({ app, time }) => `
+    <div class="recent-card" data-id="${app.id}">
+      <span class="recent-emoji">${app.emoji}</span>
+      <div class="recent-name">${app.name}</div>
+      <div class="recent-time">${timeAgo(time)}</div>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.recent-card').forEach(el => {
+    el.addEventListener('click', () => openDeploy(el.dataset.id));
+  });
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  if (hours < 24) return hours + 'h ago';
+  return days + 'd ago';
+}
+
+function addToRecent(id) {
+  let recent = store.get('push_recent') || [];
+  recent = recent.filter(r => r.id !== id);
+  recent.unshift({ id, time: Date.now() });
+  recent = recent.slice(0, 10);
+  store.set('push_recent', recent);
+}
+
+// ── Render app grid ──
+// ── Bookmark SVG ──
+const bookmarkSVG = (filled) => `
+  <svg width="13" height="16" viewBox="0 0 13 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M1 1.5A.5.5 0 011.5 1h10a.5.5 0 01.5.5v13.17a.5.5 0 01-.82.385L6.5 11.03l-4.68 4.025A.5.5 0 011 14.67V1.5z"
+      fill="${filled ? '#ffffff' : 'none'}"
+      stroke="#ffffff"
+      stroke-width="1.5"
+      stroke-linejoin="round"/>
+  </svg>`;
+
+// ── Favourites ──
+function toggleFavourite(id, e) {
+  e.stopPropagation();
+  const app = apps.find(a => a.id === id);
+  if (!app) return;
+  app.favourited = !app.favourited;
+  store.set('push_apps', apps);
+  renderApps();
+  showToast(app.favourited ? 'Added to favourites' : 'Removed from favourites');
+}
+
+function renderFavourites() {
+  const favs = apps.filter(a => a.favourited);
+  const section = document.getElementById('favSection');
+  if (!favs.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  document.getElementById('favRow').innerHTML = favs.map(app => `
+    <div class="fav-card" data-id="${app.id}">
+      <span class="fav-card-emoji">${app.emoji}</span>
+      <div class="fav-card-name">${app.name}</div>
+    </div>
+  `).join('');
+  document.querySelectorAll('.fav-card').forEach(el => {
+    el.addEventListener('click', () => openDeploy(el.dataset.id));
+  });
+}
+
+function renderApps() {
+  const grid = document.getElementById('appGrid');
+  const label = document.getElementById('allAppsLabel');
+
+  if (!apps.length) {
+    grid.innerHTML = '<div class="empty-state">No apps yet.<br>Add your first below.</div>';
+    label.style.display = 'none';
+    document.getElementById('recentSection').style.display = 'none';
+    document.getElementById('favSection').style.display = 'none';
+    return;
+  }
+
+  label.style.display = 'block';
+  grid.innerHTML = apps.map(app => `
+    <div class="app-grid-item" data-id="${app.id}">
+      <button class="fav-btn ${app.favourited ? 'active' : ''}" data-fav-id="${app.id}">
+        ${bookmarkSVG(!!app.favourited)}
+      </button>
+      <span class="app-grid-emoji">${app.emoji}</span>
+      <div class="app-grid-name">${app.name}</div>
+      <div class="app-grid-repo">${app.repo}</div>
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('.app-grid-item').forEach(el => {
+    el.addEventListener('click', () => openDeploy(el.dataset.id));
+  });
+
+  grid.querySelectorAll('.fav-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => toggleFavourite(btn.dataset.favId, e));
+  });
+
+  renderFavourites();
+  renderRecent();
+}
+
+// ── Open deploy view ──
+function openDeploy(id) {
+  const app = apps.find(a => a.id === id);
+  if (!app) return;
+  currentAppId = id;
+  selectedFile = null;
+  addToRecent(id);
+
+  // Clear search
+  document.getElementById('searchInput').value = '';
+  searchQuery = '';
+  document.getElementById('searchClear').style.display = 'none';
+  document.getElementById('searchResults').style.display = 'none';
+  document.getElementById('homeContent').style.display = 'block';
+
+  document.getElementById('deployHeaderTitle').textContent = app.name;
+  document.getElementById('deployAppName').textContent = app.name;
+  document.getElementById('deployAppRepo').textContent = `${app.username}/${app.repo} · ${app.branch || 'main'}`;
+
+  const liveUrl = `https://${app.username}.github.io/${app.repo}/`;
+  document.getElementById('liveUrlText').textContent = liveUrl;
+  document.getElementById('liveUrlBar').href = liveUrl;
+  document.getElementById('deployBtn').disabled = true;
+  document.getElementById('filePill').classList.remove('visible');
+  document.getElementById('dropZone').classList.remove('has-file');
+  document.getElementById('progressWrap').classList.remove('visible');
+  document.getElementById('resultWrap').classList.remove('visible');
+  resetSteps();
+  showView('deployView');
+}
+
+// ── Steps ──
+function resetSteps() {
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById('ps' + i);
+    el.className = 'progress-step';
+    el.querySelector('.step-indicator').textContent = i;
+  }
+}
+
+function setStep(n, state) {
+  const el = document.getElementById('ps' + n);
+  el.className = 'progress-step ' + state;
+  const ind = el.querySelector('.step-indicator');
+  if (state === 'done') ind.textContent = '✓';
+  else if (state === 'err') ind.textContent = '✕';
+  else ind.textContent = n;
+}
+
+// ── File handling ──
+document.getElementById('dropZone').addEventListener('click', () => {
+  document.getElementById('fileInput').click();
+});
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+document.getElementById('dropZone').addEventListener('dragover', (e) => {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.add('drag-over');
+});
+
+document.getElementById('dropZone').addEventListener('dragleave', () => {
+  document.getElementById('dropZone').classList.remove('drag-over');
+});
+
+document.getElementById('dropZone').addEventListener('drop', (e) => {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+function handleFile(file) {
+  if (!file.name.endsWith('.zip')) { showToast('Please select a ZIP file'); return; }
+  selectedFile = file;
+  document.getElementById('filePillName').textContent = file.name;
+  document.getElementById('filePill').classList.add('visible');
+  document.getElementById('dropZone').classList.add('has-file');
+  document.getElementById('deployBtn').disabled = false;
+  document.getElementById('progressWrap').classList.remove('visible');
+  document.getElementById('resultWrap').classList.remove('visible');
+  resetSteps();
+}
+
+document.getElementById('filePillClear').addEventListener('click', () => {
+  selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('filePill').classList.remove('visible');
+  document.getElementById('dropZone').classList.remove('has-file');
+  document.getElementById('deployBtn').disabled = true;
+});
+
+// ── Deploy ──
+document.getElementById('deployBtn').addEventListener('click', deploy);
+
+async function deploy() {
+  if (!selectedFile || !token) { showToast('Missing file or token'); return; }
+  const app = apps.find(a => a.id === currentAppId);
+  if (!app) return;
+
+  document.getElementById('deployBtn').disabled = true;
+  document.getElementById('progressWrap').classList.add('visible');
+  document.getElementById('resultWrap').classList.remove('visible');
+  resetSteps();
+
+  const branch = app.branch || 'main';
+
+  try {
+    // Step 1: Unzip
+    setStep(1, 'active');
+    const zip = await JSZip.loadAsync(selectedFile);
+    const files = [];
+    const promises = [];
+
+    zip.forEach((path, entry) => {
+      if (!entry.dir && !path.startsWith('__MACOSX') && !path.includes('.DS_Store')) {
+        promises.push(
+          entry.async('base64').then(content => {
+            // Strip leading folder if all files share one root folder
+            files.push({ path, content });
+          })
+        );
+      }
+    });
+
+    await Promise.all(promises);
+
+    // Strip common root folder
+    if (files.length > 0) {
+      const parts = files[0].path.split('/');
+      if (parts.length > 1) {
+        const root = parts[0] + '/';
+        if (files.every(f => f.path.startsWith(root))) {
+          files.forEach(f => f.path = f.path.slice(root.length));
+        }
+      }
+    }
+
+    setStep(1, 'done');
+
+    // Step 2: Connect
+    setStep(2, 'active');
+    const headers = {
+      'Authorization': `token ${token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json'
+    };
+
+    // Get latest commit SHA
+    const refRes = await fetch(`https://api.github.com/repos/${app.username}/${app.repo}/git/ref/heads/${branch}`, { headers });
+    if (!refRes.ok) {
+      const err = await refRes.json();
+      throw new Error(err.message || 'Cannot connect to repo');
+    }
+    const refData = await refRes.json();
+    const latestSha = refData.object.sha;
+
+    // Get base tree
+    const commitRes = await fetch(`https://api.github.com/repos/${app.username}/${app.repo}/git/commits/${latestSha}`, { headers });
+    const commitData = await commitRes.json();
+    const baseTreeSha = commitData.tree.sha;
+
+    setStep(2, 'done');
+
+    // Step 3: Push files
+    setStep(3, 'active');
+
+    // Create blobs for each file
+    const treeItems = [];
+    for (const file of files) {
+      if (!file.path) continue;
+      const blobRes = await fetch(`https://api.github.com/repos/${app.username}/${app.repo}/git/blobs`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ content: file.content, encoding: 'base64' })
+      });
+      const blobData = await blobRes.json();
+      treeItems.push({ path: file.path, mode: '100644', type: 'blob', sha: blobData.sha });
+    }
+
+    // Create tree
+    const treeRes = await fetch(`https://api.github.com/repos/${app.username}/${app.repo}/git/trees`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ base_tree: baseTreeSha, tree: treeItems })
+    });
+    const treeData = await treeRes.json();
+
+    // Create commit
+    const newCommitRes = await fetch(`https://api.github.com/repos/${app.username}/${app.repo}/git/commits`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        message: `Deploy via Push app — ${new Date().toLocaleString()}`,
+        tree: treeData.sha,
+        parents: [latestSha]
+      })
+    });
+    const newCommitData = await newCommitRes.json();
+
+    // Update ref
+    await fetch(`https://api.github.com/repos/${app.username}/${app.repo}/git/refs/heads/${branch}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ sha: newCommitData.sha, force: false })
+    });
+
+    setStep(3, 'done');
+    setStep(4, 'done');
+
+    // Result
+    const liveUrl = `https://${app.username}.github.io/${app.repo}/`;
+    document.getElementById('resultUrl').textContent = liveUrl;
+    document.getElementById('openUrlBtn').href = liveUrl;
+    document.getElementById('copyUrlBtn').onclick = () => {
+      navigator.clipboard.writeText(liveUrl).then(() => showToast('URL copied'));
+    };
+    document.getElementById('resultWrap').classList.add('visible');
+    showToast('Deployed ✓');
+
+  } catch (err) {
+    for (let i = 1; i <= 4; i++) {
+      const el = document.getElementById('ps' + i);
+      if (el.classList.contains('active')) { setStep(i, 'err'); break; }
+    }
+    showToast('Error: ' + err.message);
+    document.getElementById('deployBtn').disabled = false;
+  }
+}
+
+// ── Back ──
+document.getElementById('backBtn').addEventListener('click', () => {
+  renderApps();
+  showView('homeView');
+});
+
+// ── Token sheet ──
+function openTokenSheet() {
+  document.getElementById('tokenInput').value = token;
+  document.getElementById('tokenSheet').classList.add('open');
+}
+
+document.getElementById('globalSettingsBtn').addEventListener('click', openTokenSheet);
+document.getElementById('tokenCancel').addEventListener('click', () => {
+  document.getElementById('tokenSheet').classList.remove('open');
+});
+document.getElementById('tokenSave').addEventListener('click', () => {
+  const val = document.getElementById('tokenInput').value.trim();
+  if (!val) { showToast('Enter a token'); return; }
+  token = val;
+  store.set('push_token', token);
+  document.getElementById('tokenSheet').classList.remove('open');
+  updateTokenStatus();
+  showToast('Token saved');
+});
+
+// ── Emoji picker ──
+function renderEmojiPicker() {
+  const row = document.getElementById('emojiRow');
+  row.innerHTML = EMOJIS.map(e => `
+    <div class="emoji-opt${e === selectedEmoji ? ' selected' : ''}" data-emoji="${e}">${e}</div>
+  `).join('');
+  row.querySelectorAll('.emoji-opt').forEach(el => {
+    el.addEventListener('click', () => {
+      selectedEmoji = el.dataset.emoji;
+      renderEmojiPicker();
+    });
+  });
+}
+
+// ── Toggle ──
+let createRepoEnabled = false;
+
+document.getElementById('createRepoToggleRow').addEventListener('click', () => {
+  createRepoEnabled = !createRepoEnabled;
+  const toggle = document.getElementById('createRepoToggle');
+  toggle.classList.toggle('on', createRepoEnabled);
+  document.getElementById('manualRepoSection').style.display = createRepoEnabled ? 'none' : 'block';
+  document.getElementById('autoRepoSection').style.display = createRepoEnabled ? 'block' : 'none';
+});
+
+// Live preview of repo name
+document.getElementById('appRepoAutoInput').addEventListener('input', (e) => {
+  const slug = slugify(e.target.value);
+  document.getElementById('repoPreviewName').textContent = slug || 'repo';
+});
+
+document.getElementById('appUsernameInput').addEventListener('input', (e) => {
+  document.getElementById('repoPreviewUser').textContent = e.target.value.trim() || 'username';
+});
+
+function slugify(str) {
+  return str.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
+
+// ── Create GitHub repo ──
+async function createGitHubRepo(username, repoName, branch) {
+  const headers = {
+    'Authorization': `token ${token}`,
+    'Accept': 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json'
+  };
+
+  // 1. Create repo
+  const createRes = await fetch(`https://api.github.com/user/repos`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      name: repoName,
+      description: `Deployed via Push app`,
+      private: false,
+      auto_init: true
+    })
+  });
+
+  if (!createRes.ok) {
+    const err = await createRes.json();
+    throw new Error(err.message || 'Could not create repo');
+  }
+
+  // 2. Wait a moment for GitHub to initialise
+  await new Promise(r => setTimeout(r, 1500));
+
+  // 3. Enable GitHub Pages
+  try {
+    await fetch(`https://api.github.com/repos/${username}/${repoName}/pages`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ source: { branch: branch || 'main', path: '/' } })
+    });
+  } catch (e) {
+    // Pages activation sometimes needs a file first — not fatal, deploy will trigger it
+  }
+
+  return repoName;
+}
+
+// ── App sheet ──
+function openAddSheet() {
+  editingAppId = null;
+  createRepoEnabled = false;
+  selectedEmoji = '📱';
+  document.getElementById('appSheetTitle').textContent = 'New App';
+  document.getElementById('appNameInput').value = '';
+  document.getElementById('appUsernameInput').value = '';
+  document.getElementById('appRepoInput').value = '';
+  document.getElementById('appRepoAutoInput').value = '';
+  document.getElementById('appBranchInput').value = 'main';
+  document.getElementById('deleteSection').style.display = 'none';
+  document.getElementById('appSave').textContent = 'Save App';
+  document.getElementById('createRepoSection').style.display = 'block';
+  document.getElementById('createRepoToggle').classList.remove('on');
+  document.getElementById('manualRepoSection').style.display = 'block';
+  document.getElementById('autoRepoSection').style.display = 'none';
+  document.getElementById('repoPreviewUser').textContent = 'username';
+  document.getElementById('repoPreviewName').textContent = 'repo';
+  renderEmojiPicker();
+  document.getElementById('appSheet').classList.add('open');
+}
+
+function openEditSheet(id) {
+  const app = apps.find(a => a.id === id);
+  if (!app) return;
+  editingAppId = id;
+  createRepoEnabled = false;
+  selectedEmoji = app.emoji || '📱';
+  document.getElementById('appSheetTitle').textContent = 'Edit App';
+  document.getElementById('appNameInput').value = app.name;
+  document.getElementById('appUsernameInput').value = app.username;
+  document.getElementById('appRepoInput').value = app.repo;
+  document.getElementById('appBranchInput').value = app.branch || 'main';
+  document.getElementById('deleteSection').style.display = 'block';
+  document.getElementById('appSave').textContent = 'Update App';
+  document.getElementById('createRepoSection').style.display = 'none'; // hide when editing
+  document.getElementById('manualRepoSection').style.display = 'block';
+  renderEmojiPicker();
+  document.getElementById('appSheet').classList.add('open');
+}
+
+document.getElementById('addAppBtn').addEventListener('click', openAddSheet);
+document.getElementById('editAppBtn').addEventListener('click', () => {
+  if (currentAppId) openEditSheet(currentAppId);
+});
+
+document.getElementById('appCancel').addEventListener('click', () => {
+  document.getElementById('appSheet').classList.remove('open');
+});
+
+document.getElementById('appSave').addEventListener('click', async () => {
+  const name = document.getElementById('appNameInput').value.trim();
+  const username = document.getElementById('appUsernameInput').value.trim();
+  const branch = document.getElementById('appBranchInput').value.trim() || 'main';
+  let repo;
+
+  if (editingAppId) {
+    repo = document.getElementById('appRepoInput').value.trim();
+  } else if (createRepoEnabled) {
+    repo = slugify(document.getElementById('appRepoAutoInput').value.trim());
+  } else {
+    repo = document.getElementById('appRepoInput').value.trim();
+  }
+
+  if (!name || !username || !repo) { showToast('Fill in all fields'); return; }
+  if (!token && createRepoEnabled) { showToast('Connect a platform first'); return; }
+
+  const saveBtn = document.getElementById('appSave');
+  saveBtn.disabled = true;
+
+  if (!editingAppId && createRepoEnabled) {
+    saveBtn.textContent = 'Creating repo…';
+    try {
+      await createGitHubRepo(username, repo, branch);
+      showToast('Repo created ✓');
+    } catch (err) {
+      showToast('Error: ' + err.message);
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save App';
+      return;
+    }
+  }
+
+  if (editingAppId) {
+    apps = apps.map(a => a.id === editingAppId
+      ? { ...a, name, username, repo, branch, emoji: selectedEmoji }
+      : a
+    );
+    showToast('App updated');
+  } else {
+    apps.push({ id: Date.now().toString(), name, username, repo, branch, emoji: selectedEmoji });
+    showToast('App added');
+  }
+
+  store.set('push_apps', apps);
+  renderApps();
+  saveBtn.disabled = false;
+  saveBtn.textContent = editingAppId ? 'Update App' : 'Save App';
+  document.getElementById('appSheet').classList.remove('open');
+});
+
+document.getElementById('appDelete').addEventListener('click', () => {
+  if (!editingAppId) return;
+  apps = apps.filter(a => a.id !== editingAppId);
+  store.set('push_apps', apps);
+  renderApps();
+  document.getElementById('appSheet').classList.remove('open');
+  showView('homeView');
+  showToast('App deleted');
+});
+
+// Close sheets on overlay tap
+['tokenSheet', 'appSheet'].forEach(id => {
+  document.getElementById(id).addEventListener('click', (e) => {
+    if (e.target === document.getElementById(id)) {
+      document.getElementById(id).classList.remove('open');
+    }
+  });
+});
+
+// ── Onboarding ──
+let onboardStep = 0;
+const TOTAL_STEPS = 3;
+
+function showOnboardStep(n) {
+  document.querySelectorAll('.onboard-slide').forEach((s, i) => {
+    s.classList.toggle('active', i === n);
+  });
+  document.querySelectorAll('.onboard-pip').forEach((p, i) => {
+    p.classList.toggle('active', i <= n);
+  });
+
+  const nextBtn = document.getElementById('onboardNextBtn');
+  const skipBtn = document.getElementById('onboardSkipBtn');
+
+  if (n === 0) {
+    nextBtn.textContent = 'Get Started →';
+    skipBtn.style.display = 'block';
+  } else if (n === 1) {
+    nextBtn.textContent = 'Next →';
+    skipBtn.style.display = 'block';
+  } else {
+    nextBtn.textContent = 'Connect Platform →';
+    skipBtn.style.display = 'block';
+  }
+}
+
+document.getElementById('onboardNextBtn').addEventListener('click', () => {
+  if (onboardStep < TOTAL_STEPS - 1) {
+    onboardStep++;
+    showOnboardStep(onboardStep);
+  } else {
+    // Last step — go to home and open token sheet
+    finishOnboard(true);
+  }
+});
+
+document.getElementById('onboardSkipBtn').addEventListener('click', () => {
+  finishOnboard(false);
+});
+
+function finishOnboard(openToken) {
+  store.set('push_onboarded', true);
+  showView('homeView');
+  if (openToken) {
+    setTimeout(() => openTokenSheet(), 300);
+  }
+}
+
+function checkOnboard() {
+  const done = store.get('push_onboarded');
+  if (!done) {
+    showView('onboardView');
+    showOnboardStep(0);
+  }
+}
+
+// ── Init ──
+updateTokenStatus();
+renderApps();
+checkOnboard();
+</script>
+</body>
+</html>

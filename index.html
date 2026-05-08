@@ -1870,6 +1870,21 @@ input[type="file"] { display: none; }
   </div>
 </div>
 
+<!-- ══════════════════ FILE MISMATCH WARNING ══════════════════ -->
+<div class="sheet-overlay" id="mismatchSheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Wrong file?</div>
+    <p style="font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:20px;" id="mismatchMsg">
+      The file name doesn't match your app name. Are you sure you want to deploy this?
+    </p>
+    <div class="sheet-actions">
+      <button class="sheet-btn ghost" id="mismatchCancel">Cancel</button>
+      <button class="sheet-btn primary" id="mismatchContinue">Deploy Anyway</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -2514,6 +2529,11 @@ function renderDeployHistory(appId) {
 
     const expandedHTML = (entry.branch || entry.commitUrl) ? `
       <div class="history-expanded" id="expand-${entry.time}">
+        ${entry.zipName ? `
+        <div class="history-detail-row">
+          <span class="history-detail-label">File</span>
+          <span class="history-detail-value">${entry.zipName}</span>
+        </div>` : ''}
         ${entry.branch ? `
         <div class="history-detail-row">
           <span class="history-detail-label">Branch</span>
@@ -2577,6 +2597,36 @@ async function deploy() {
   if (!selectedFile || !token) { showToast('Missing file or token'); return; }
   const app = apps.find(a => a.id === currentAppId);
   if (!app) return;
+
+  // File name mismatch check
+  const zipName = selectedFile.name.replace('.zip', '').toLowerCase().replace(/[-_\s]/g, '');
+  const appName = app.name.toLowerCase().replace(/[-_\s]/g, '');
+  const repoName = app.repo.toLowerCase().replace(/[-_\s]/g, '');
+  const genericNames = ['app', 'project', 'build', 'dist', 'output', 'export', 'download'];
+  const isGeneric = genericNames.some(g => zipName === g);
+  const isMatch = zipName.includes(appName) || appName.includes(zipName) ||
+                  zipName.includes(repoName) || repoName.includes(zipName) || isGeneric;
+
+  if (!isMatch) {
+    const msg = `You're deploying "<strong>${selectedFile.name}</strong>" to <strong>${app.name}</strong>. The names don't match — is this the right file?`;
+    document.getElementById('mismatchMsg').innerHTML = msg;
+    document.getElementById('mismatchSheet').classList.add('open');
+
+    await new Promise((resolve, reject) => {
+      document.getElementById('mismatchContinue').onclick = () => {
+        document.getElementById('mismatchSheet').classList.remove('open');
+        resolve();
+      };
+      document.getElementById('mismatchCancel').onclick = () => {
+        document.getElementById('mismatchSheet').classList.remove('open');
+        document.getElementById('deployBtn').disabled = false;
+        reject('cancelled');
+      };
+    }).catch(() => { return; });
+
+    // Re-check if cancelled
+    if (!selectedFile) return;
+  }
 
   document.getElementById('deployBtn').disabled = true;
   document.getElementById('progressWrap').classList.add('visible');
@@ -2695,7 +2745,8 @@ async function deploy() {
       branch: app.branch || 'main',
       commitUrl,
       commitSha: newCommitData.sha.slice(0, 7),
-      fullTime: new Date().toISOString()
+      fullTime: new Date().toISOString(),
+      zipName: selectedFile.name
     });
     renderDeployHistory(currentAppId);
 
@@ -3026,7 +3077,7 @@ function checkOnboard() {
 
 // ── Swipe down to dismiss sheets ──
 (function() {
-  const SHEETS = ['tokenSheet', 'appSheet'];
+  const SHEETS = ['tokenSheet', 'appSheet', 'mismatchSheet'];
 
   SHEETS.forEach(sheetId => {
     const overlay = document.getElementById(sheetId);

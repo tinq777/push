@@ -6,7 +6,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Push">
-<meta name="theme-color" content="#f8f8f6">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%230a0a0a'/%3E%3Ctext x='90' y='115' font-family='system-ui,sans-serif' font-weight='800' font-size='110' fill='white' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0a0a'/%3E%3Ctext x='16' y='23' font-family='system-ui,sans-serif' font-weight='800' font-size='20' fill='white' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
 <title>Push</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -1444,12 +1446,12 @@ input[type="file"] { display: none; }
       <!-- Slide 1: Welcome -->
       <div class="onboard-slide active" id="slide0">
         <span class="onboard-icon">🚀</span>
-        <div class="onboard-title">Deploy your<br><strong>Claude apps</strong><br>from your phone.</div>
-        <div class="onboard-body">Push connects to your GitHub repos and publishes your AI-built apps live — in one tap. No laptop. No terminal. No fuss.</div>
+        <div class="onboard-title">Deploy your<br><strong>AI-built apps</strong><br>from your phone.</div>
+        <div class="onboard-body">Push connects to your deployment platform and publishes your apps live — in one tap. No laptop. No terminal. No fuss.</div>
         <div class="onboard-steps">
           <div class="onboard-step-row">
             <div class="onboard-step-num">1</div>
-            <div class="onboard-step-text">Ask Claude to build your app
+            <div class="onboard-step-text">Ask an AI to build your app
               <span>Get a ZIP file from the chat</span>
             </div>
           </div>
@@ -1462,7 +1464,7 @@ input[type="file"] { display: none; }
           <div class="onboard-step-row">
             <div class="onboard-step-num">3</div>
             <div class="onboard-step-text">Tap Deploy
-              <span>Your app is live on GitHub Pages</span>
+              <span>Your app is live instantly</span>
             </div>
           </div>
         </div>
@@ -1496,32 +1498,32 @@ input[type="file"] { display: none; }
         <div class="onboard-note">💡 Already done? Skip this step — you're good.</div>
       </div>
 
-      <!-- Slide 3: GitHub token -->
+      <!-- Slide 3: Connect platform -->
       <div class="onboard-slide" id="slide2">
         <span class="onboard-icon">🔑</span>
-        <div class="onboard-title">Connect<br>your<br><strong>GitHub.</strong></div>
-        <div class="onboard-body">Push needs a Personal Access Token to push files to your repos. It's stored only on your device — never sent anywhere else.</div>
+        <div class="onboard-title">Connect<br>your<br><strong>platform.</strong></div>
+        <div class="onboard-body">Push needs an access token to deploy your apps. It's stored only on your device — never sent anywhere except directly to your platform.</div>
         <div class="onboard-steps">
           <div class="onboard-step-row">
             <div class="onboard-step-num">1</div>
-            <div class="onboard-step-text">Go to GitHub.com → Settings
-              <span>Top right profile menu → Settings</span>
+            <div class="onboard-step-text">Go to your platform's settings
+              <span>e.g. GitHub.com → Settings</span>
             </div>
           </div>
           <div class="onboard-step-row">
             <div class="onboard-step-num">2</div>
-            <div class="onboard-step-text">Developer settings → Personal access tokens
-              <span>Choose "Tokens (classic)"</span>
+            <div class="onboard-step-text">Generate an access token
+              <span>GitHub: Developer settings → Personal access tokens → Tokens (classic) → enable repo scope</span>
             </div>
           </div>
           <div class="onboard-step-row">
             <div class="onboard-step-num">3</div>
-            <div class="onboard-step-text">Generate new token — enable "repo" scope
-              <span>Copy the token — you'll paste it next</span>
+            <div class="onboard-step-text">Paste it into Push
+              <span>Tap ⚙ on the home screen to connect</span>
             </div>
           </div>
         </div>
-        <div class="onboard-note">🔒 Your token is stored in your device's local storage only. Push never sends it anywhere except directly to GitHub's API.</div>
+        <div class="onboard-note">🔒 Your token is stored locally on your device only. Push never stores or shares it anywhere.</div>
       </div>
 
     </div>

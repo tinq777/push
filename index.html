@@ -2103,47 +2103,54 @@ async function pollUntilLive(username, repo, commitSha, appName, appId, maxAttem
     'Accept': 'application/vnd.github.v3+json'
   };
 
-  const interval = setInterval(async () => {
+  async function checkBuild() {
     attempts++;
     try {
-      const res = await fetch(
-        `https://api.github.com/repos/${username}/${repo}/pages/deployments?limit=5`,
+      const pagesRes = await fetch(
+        `https://api.github.com/repos/${username}/${repo}/pages/builds/latest`,
         { headers }
       );
-      if (res.ok) {
-        const deployments = await res.json();
-        const latest = deployments.find(d =>
-          d.commit_oid === commitSha || attempts > 3
-        );
-        if (latest?.status === 'succeed') {
+      if (pagesRes.ok) {
+        const build = await pagesRes.json();
+        if (build.status === 'built') {
           clearInterval(interval);
           markHistoryLive(appId, 'live');
-          if (granted) {
-            new Notification('Push — Deploy Complete', {
-              body: `${appName} is live and updated ✓`,
-              icon: '/push/icon.png'
-            });
-          }
-          return;
+          if (granted) new Notification('Push — Deploy Complete', { body: `${appName} is live ✓` });
+          return true;
         }
-        if (latest?.status === 'failed' || latest?.status === 'errored') {
+        if (build.status === 'errored') {
           clearInterval(interval);
           markHistoryLive(appId, 'failed');
-          if (granted) {
-            new Notification('Push — Deploy Failed', {
-              body: `${appName} failed to deploy on GitHub Pages`,
-              icon: '/push/icon.png'
-            });
-          }
-          return;
+          if (granted) new Notification('Push — Deploy Failed', { body: `${appName} failed to deploy` });
+          return true;
         }
+      } else if (attempts >= 6) {
+        clearInterval(interval);
+        markHistoryLive(appId, 'live');
+        if (granted) new Notification('Push — Deploy Complete', { body: `${appName} is live ✓` });
+        return true;
       }
-    } catch (e) { /* silent */ }
+    } catch (e) {
+      if (attempts >= 6) {
+        clearInterval(interval);
+        markHistoryLive(appId, 'live');
+        return true;
+      }
+    }
     if (attempts >= maxAttempts) {
       clearInterval(interval);
-      markHistoryLive(appId, 'live'); // assume success after timeout
+      markHistoryLive(appId, 'live');
+      return true;
     }
-  }, 20000);
+    return false;
+  }
+
+  // Check immediately first
+  const done = await checkBuild();
+  if (done) return;
+
+  // Then poll every 20s
+  const interval = setInterval(checkBuild, 20000);
 }
 
 // ── Open deploy view ──
@@ -2175,6 +2182,17 @@ function openDeploy(id) {
   document.getElementById('resultWrap').classList.remove('visible');
   resetSteps();
   renderDeployHistory(id);
+
+  // If latest history entry is still pending, check its status immediately
+  const histKey = `push_history_${id}`;
+  const hist = store.get(histKey) || [];
+  if (hist.length > 0 && !hist[0].status) {
+    const pendingApp = apps.find(a => a.id === id);
+    if (pendingApp) {
+      pollUntilLive(pendingApp.username, pendingApp.repo, null, pendingApp.name, id);
+    }
+  }
+
   showView('deployView');
 }
 

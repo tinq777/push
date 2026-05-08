@@ -2271,6 +2271,10 @@ const failedSVG = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
 
 const pendingHTML = `<div class="history-status-pending"></div>`;
 
+const dashSVG = `<svg width="10" height="2" viewBox="0 0 10 2" fill="none">
+  <path d="M1 1h8" stroke="#444" stroke-width="1.5" stroke-linecap="round"/>
+</svg>`;
+
 function renderDeployHistory(appId) {
   const key = `push_history_${appId}`;
   const history = store.get(key) || [];
@@ -2280,11 +2284,19 @@ function renderDeployHistory(appId) {
   if (!history.length) { section.style.display = 'none'; return; }
 
   section.style.display = 'block';
-  list.innerHTML = history.map(entry => {
+  list.innerHTML = history.map((entry, index) => {
     let statusHTML;
-    if (entry.status === 'live') statusHTML = `<div class="history-status-live">${liveSVG}</div>`;
-    else if (entry.status === 'failed') statusHTML = `<div class="history-status-live">${failedSVG}</div>`;
-    else statusHTML = pendingHTML;
+    if (entry.status === 'live') {
+      statusHTML = `<div class="history-status-live">${liveSVG}</div>`;
+    } else if (entry.status === 'failed') {
+      statusHTML = `<div class="history-status-live">${failedSVG}</div>`;
+    } else if (index === 0 && !entry.status) {
+      // Only the very latest entry with no status yet gets a spinner
+      statusHTML = pendingHTML;
+    } else {
+      // Older unresolved entries get a neutral dash
+      statusHTML = `<div class="history-status-live">${dashSVG}</div>`;
+    }
 
     return `
       <div class="history-item">
@@ -2432,7 +2444,12 @@ async function deploy() {
     showToast('Deployed ✓');
 
     // Start polling for GitHub Pages rebuild notification
-    pollUntilLive(app.username, app.repo, newCommitData.sha, app.name, currentAppId);
+    const historyKey = `push_history_${currentAppId}`;
+    const existingHistory = store.get(historyKey) || [];
+    const alreadyResolved = existingHistory.length > 0 && existingHistory[0].status;
+    if (!alreadyResolved) {
+      pollUntilLive(app.username, app.repo, newCommitData.sha, app.name, currentAppId);
+    }
 
   } catch (err) {
     for (let i = 1; i <= 4; i++) {

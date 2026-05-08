@@ -1717,12 +1717,12 @@ input[type="file"] { display: none; }
       </div>
     </div>
 
-    <input type="file" id="fileInput" accept=".zip">
+    <input type="file" id="fileInput" accept=".zip,.html,.htm">
     <div class="drop-zone" id="dropZone">
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style="margin:0 auto 12px;display:block;opacity:0.4">
         <path d="M12 3v13M7 8l5-5 5 5M5 21h14" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <div class="drop-title">Select ZIP file</div>
+      <div class="drop-title">Select ZIP or HTML file</div>
       <div class="drop-sub">Tap to browse · from Files app</div>
     </div>
 
@@ -1738,7 +1738,7 @@ input[type="file"] { display: none; }
     <div class="progress-wrap" id="progressWrap">
       <div class="progress-step" id="ps1">
         <div class="step-indicator">1</div>
-        <span class="step-label">Reading ZIP</span>
+        <span class="step-label">Reading file</span>
       </div>
       <div class="progress-step" id="ps2">
         <div class="step-indicator">2</div>
@@ -2453,7 +2453,9 @@ document.getElementById('dropZone').addEventListener('drop', (e) => {
 });
 
 function handleFile(file) {
-  if (!file.name.endsWith('.zip')) { showToast('Please select a ZIP file'); return; }
+  const isZip = file.name.endsWith('.zip');
+  const isHtml = file.name.endsWith('.html') || file.name.endsWith('.htm');
+  if (!isZip && !isHtml) { showToast('Please select a ZIP or HTML file'); return; }
   selectedFile = file;
   document.getElementById('filePillName').textContent = file.name;
   document.getElementById('filePill').classList.add('visible');
@@ -2599,7 +2601,7 @@ async function deploy() {
   if (!app) return;
 
   // File name mismatch check
-  const zipName = selectedFile.name.replace('.zip', '').toLowerCase().replace(/[-_\s]/g, '');
+  const zipName = selectedFile.name.replace('.zip', '').replace('.html', '').replace('.htm', '').toLowerCase().replace(/[-_\s]/g, '');
   const appName = app.name.toLowerCase().replace(/[-_\s]/g, '');
   const repoName = app.repo.toLowerCase().replace(/[-_\s]/g, '');
   const genericNames = ['app', 'project', 'build', 'dist', 'output', 'export', 'download'];
@@ -2636,34 +2638,45 @@ async function deploy() {
   const branch = app.branch || 'main';
 
   try {
-    // Step 1: Unzip
+    // Step 1: Read file
     setStep(1, 'active');
-    const zip = await JSZip.loadAsync(selectedFile);
     const files = [];
-    const promises = [];
+    const isZip = selectedFile.name.endsWith('.zip');
 
-    zip.forEach((path, entry) => {
-      if (!entry.dir && !path.startsWith('__MACOSX') && !path.includes('.DS_Store')) {
-        promises.push(
-          entry.async('base64').then(content => {
-            // Strip leading folder if all files share one root folder
-            files.push({ path, content });
-          })
-        );
-      }
-    });
+    if (isZip) {
+      // Unzip and collect files
+      const zip = await JSZip.loadAsync(selectedFile);
+      const promises = [];
+      zip.forEach((path, entry) => {
+        if (!entry.dir && !path.startsWith('__MACOSX') && !path.includes('.DS_Store')) {
+          promises.push(
+            entry.async('base64').then(content => {
+              files.push({ path, content });
+            })
+          );
+        }
+      });
+      await Promise.all(promises);
 
-    await Promise.all(promises);
-
-    // Strip common root folder
-    if (files.length > 0) {
-      const parts = files[0].path.split('/');
-      if (parts.length > 1) {
-        const root = parts[0] + '/';
-        if (files.every(f => f.path.startsWith(root))) {
-          files.forEach(f => f.path = f.path.slice(root.length));
+      // Strip common root folder
+      if (files.length > 0) {
+        const parts = files[0].path.split('/');
+        if (parts.length > 1) {
+          const root = parts[0] + '/';
+          if (files.every(f => f.path.startsWith(root))) {
+            files.forEach(f => f.path = f.path.slice(root.length));
+          }
         }
       }
+    } else {
+      // Single HTML file — read as base64, deploy as index.html
+      const content = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(selectedFile);
+      });
+      files.push({ path: 'index.html', content });
     }
 
     setStep(1, 'done');

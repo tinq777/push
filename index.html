@@ -865,13 +865,29 @@ input[type="file"] { display: none; }
   border-radius: var(--radius-sm);
 }
 
-.history-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--border-strong);
+.history-status {
   flex-shrink: 0;
-  margin-top: 5px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.history-status-pending {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  border-top-color: #ffffff;
+  animation: spin 1.2s linear infinite;
+}
+
+.history-status-live {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .history-info { flex: 1; min-width: 0; }
@@ -2079,10 +2095,8 @@ async function requestNotificationPermission() {
   return result === 'granted';
 }
 
-async function pollUntilLive(url, appName, maxAttempts = 12) {
+async function pollUntilLive(url, appName, appId, maxAttempts = 12) {
   const granted = await requestNotificationPermission();
-  if (!granted) return;
-
   let attempts = 0;
   const interval = setInterval(async () => {
     attempts++;
@@ -2090,14 +2104,17 @@ async function pollUntilLive(url, appName, maxAttempts = 12) {
       const res = await fetch(url + '?cachebust=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
       if (res.ok) {
         clearInterval(interval);
-        new Notification('Push — Deploy Complete', {
-          body: `${appName} is live and updated ✓`,
-          icon: '/push/icon.png'
-        });
+        markHistoryLive(appId);
+        if (granted) {
+          new Notification('Push — Deploy Complete', {
+            body: `${appName} is live and updated ✓`,
+            icon: '/push/icon.png'
+          });
+        }
       }
     } catch (e) { /* still building */ }
     if (attempts >= maxAttempts) clearInterval(interval);
-  }, 30000); // poll every 30s
+  }, 30000);
 }
 
 // ── Open deploy view ──
@@ -2198,10 +2215,28 @@ document.getElementById('filePillClear').addEventListener('click', () => {
 function saveDeployHistory(appId, message) {
   const key = `push_history_${appId}`;
   let history = store.get(key) || [];
-  history.unshift({ message, time: Date.now() });
-  history = history.slice(0, 10); // keep last 10
+  history.unshift({ message, time: Date.now(), live: false });
+  history = history.slice(0, 10);
   store.set(key, history);
 }
+
+function markHistoryLive(appId) {
+  const key = `push_history_${appId}`;
+  let history = store.get(key) || [];
+  if (history.length > 0) {
+    history[0].live = true;
+    store.set(key, history);
+  }
+  // Re-render if we're still on this app's screen
+  if (currentAppId === appId) renderDeployHistory(appId);
+}
+
+const liveSVG = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+  <circle cx="7" cy="7" r="6" stroke="#ffffff" stroke-width="1.5" opacity="0.3"/>
+  <path d="M4 7l2 2 4-4" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+
+const pendingHTML = `<div class="history-status-pending"></div>`;
 
 function renderDeployHistory(appId) {
   const key = `push_history_${appId}`;
@@ -2214,7 +2249,12 @@ function renderDeployHistory(appId) {
   section.style.display = 'block';
   list.innerHTML = history.map(entry => `
     <div class="history-item">
-      <div class="history-dot"></div>
+      <div class="history-status">
+        ${entry.live
+          ? `<div class="history-status-live">${liveSVG}</div>`
+          : pendingHTML
+        }
+      </div>
       <div class="history-info">
         <div class="history-message">${entry.message}</div>
         <div class="history-time">${timeAgo(entry.time)}</div>
@@ -2357,7 +2397,7 @@ async function deploy() {
     showToast('Deployed ✓');
 
     // Start polling for GitHub Pages rebuild notification
-    pollUntilLive(liveUrl, app.name);
+    pollUntilLive(liveUrl, app.name, currentAppId);
 
   } catch (err) {
     for (let i = 1; i <= 4; i++) {

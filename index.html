@@ -863,6 +863,74 @@ input[type="file"] { display: none; }
   background: var(--surface);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s;
+  flex-direction: column;
+}
+
+.history-item:active { border-color: var(--border-strong); }
+
+.history-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+
+.history-expanded {
+  display: none;
+  width: 100%;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+}
+
+.history-expanded.open { display: block; }
+
+.history-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.history-detail-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.history-detail-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text);
+  font-weight: 400;
+}
+
+.history-commit-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-decoration: none;
+  margin-top: 4px;
+  transition: border-color 0.15s;
+}
+
+.history-commit-link:active { border-color: var(--border-strong); }
+
+.history-commit-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 300;
+  flex: 1;
 }
 
 .history-status {
@@ -2265,10 +2333,10 @@ document.getElementById('filePillClear').addEventListener('click', () => {
 });
 
 // ── Deploy History ──
-function saveDeployHistory(appId, message) {
+function saveDeployHistory(appId, message, details = {}) {
   const key = `push_history_${appId}`;
   let history = store.get(key) || [];
-  history.unshift({ message, time: Date.now(), live: false });
+  history.unshift({ message, time: Date.now(), live: false, ...details });
   history = history.slice(0, 10);
   store.set(key, history);
 }
@@ -2310,28 +2378,71 @@ function renderDeployHistory(appId) {
   section.style.display = 'block';
   list.innerHTML = history.map((entry, index) => {
     let statusHTML;
-    if (entry.status === 'live') {
-      statusHTML = `<div class="history-status-live">${liveSVG}</div>`;
-    } else if (entry.status === 'failed') {
-      statusHTML = `<div class="history-status-live">${failedSVG}</div>`;
-    } else if (index === 0 && !entry.status) {
-      // Only the very latest entry with no status yet gets a spinner
-      statusHTML = pendingHTML;
-    } else {
-      // Older unresolved entries get a neutral dash
-      statusHTML = `<div class="history-status-live">${dashSVG}</div>`;
-    }
+    if (entry.status === 'live') statusHTML = `<div class="history-status-live">${liveSVG}</div>`;
+    else if (entry.status === 'failed') statusHTML = `<div class="history-status-live">${failedSVG}</div>`;
+    else if (index === 0 && !entry.status) statusHTML = pendingHTML;
+    else statusHTML = `<div class="history-status-live">${dashSVG}</div>`;
+
+    const fullDate = entry.fullTime
+      ? new Date(entry.fullTime).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+      : new Date(entry.time).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+
+    const expandedHTML = (entry.branch || entry.commitUrl) ? `
+      <div class="history-expanded" id="expand-${entry.time}">
+        ${entry.branch ? `
+        <div class="history-detail-row">
+          <span class="history-detail-label">Branch</span>
+          <span class="history-detail-value">${entry.branch}</span>
+        </div>` : ''}
+        <div class="history-detail-row">
+          <span class="history-detail-label">Date</span>
+          <span class="history-detail-value">${fullDate}</span>
+        </div>
+        ${entry.commitSha ? `
+        <div class="history-detail-row">
+          <span class="history-detail-label">Commit</span>
+          <span class="history-detail-value">${entry.commitSha}</span>
+        </div>` : ''}
+        ${entry.commitUrl ? `
+        <a class="history-commit-link" href="${entry.commitUrl}" target="_blank">
+          <span class="history-commit-label">View on GitHub</span>
+          <svg width="11" height="11" viewBox="0 0 15 15" fill="none">
+            <path d="M3 2h9a1 1 0 011 1v9M13 2L2 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:#555"/>
+          </svg>
+        </a>` : ''}
+      </div>` : '';
 
     return `
-      <div class="history-item">
-        <div class="history-status">${statusHTML}</div>
-        <div class="history-info">
-          <div class="history-message">${entry.message}</div>
-          <div class="history-time">${timeAgo(entry.time)}</div>
+      <div class="history-item" data-expand="expand-${entry.time}">
+        <div class="history-main">
+          <div class="history-status">${statusHTML}</div>
+          <div class="history-info">
+            <div class="history-message">${entry.message}</div>
+            <div class="history-time">${timeAgo(entry.time)}</div>
+          </div>
+          ${entry.branch || entry.commitUrl ? `
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink:0;margin-top:4px;opacity:0.3">
+            <path d="M2 3l3 3 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>` : ''}
         </div>
+        ${expandedHTML}
       </div>
     `;
   }).join('');
+
+  // Tap to expand
+  list.querySelectorAll('.history-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return; // don't expand if tapping a link
+      const expandId = item.dataset.expand;
+      const expanded = document.getElementById(expandId);
+      if (!expanded) return;
+      const isOpen = expanded.classList.contains('open');
+      // Close all others
+      list.querySelectorAll('.history-expanded').forEach(el => el.classList.remove('open'));
+      if (!isOpen) expanded.classList.add('open');
+    });
+  });
 }
 
 // ── Deploy ──
@@ -2454,7 +2565,13 @@ async function deploy() {
 
     // Save to history
     const commitMsg = `Deployed via Push — ${new Date().toLocaleString()}`;
-    saveDeployHistory(currentAppId, commitMsg);
+    const commitUrl = `https://github.com/${app.username}/${app.repo}/commit/${newCommitData.sha}`;
+    saveDeployHistory(currentAppId, commitMsg, {
+      branch: app.branch || 'main',
+      commitUrl,
+      commitSha: newCommitData.sha.slice(0, 7),
+      fullTime: new Date().toISOString()
+    });
     renderDeployHistory(currentAppId);
 
     // Result

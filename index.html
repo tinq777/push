@@ -1613,7 +1613,7 @@ input[type="file"] { display: none; }
 
     <!-- Deploy history -->
     <div id="deployHistory" style="display:none">
-      <div class="section-label" style="margin-bottom:10px">Deploy History</div>
+      <div class="section-label" style="margin-bottom:10px">Deployed</div>
       <div class="history-list" id="historyList"></div>
     </div>
 
@@ -2447,7 +2447,7 @@ async function deploy() {
     setStep(4, 'done');
 
     // Save to history
-    const commitMsg = `Deploy via Push — ${new Date().toLocaleString()}`;
+    const commitMsg = `Deployed via Push — ${new Date().toLocaleString()}`;
     saveDeployHistory(currentAppId, commitMsg);
     renderDeployHistory(currentAppId);
 

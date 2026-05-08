@@ -2191,7 +2191,7 @@ async function pollUntilLive(username, repo, commitSha, appName, appId, maxAttem
         if (build.status === 'built') {
           clearInterval(interval);
           markHistoryLive(appId, 'live');
-          if (granted) new Notification('Push — Deploy Complete', { body: `${appName} is live ✓` });
+          if (granted) new Notification('Push — Deploy Complete', { body: `${appName} deployed successfully` });
           return true;
         }
         if (build.status === 'errored') {
@@ -2203,7 +2203,7 @@ async function pollUntilLive(username, repo, commitSha, appName, appId, maxAttem
       } else if (attempts >= 6) {
         clearInterval(interval);
         markHistoryLive(appId, 'live');
-        if (granted) new Notification('Push — Deploy Complete', { body: `${appName} is live ✓` });
+        if (granted) new Notification('Push — Deploy Complete', { body: `${appName} deployed successfully` });
         return true;
       }
     } catch (e) {

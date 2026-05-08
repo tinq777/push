@@ -2614,20 +2614,21 @@ async function deploy() {
     document.getElementById('mismatchMsg').innerHTML = msg;
     document.getElementById('mismatchSheet').classList.add('open');
 
-    await new Promise((resolve, reject) => {
+    const proceed = await new Promise((resolve) => {
       document.getElementById('mismatchContinue').onclick = () => {
         document.getElementById('mismatchSheet').classList.remove('open');
-        resolve();
+        resolve(true);
       };
       document.getElementById('mismatchCancel').onclick = () => {
         document.getElementById('mismatchSheet').classList.remove('open');
-        document.getElementById('deployBtn').disabled = false;
-        reject('cancelled');
+        resolve(false);
       };
-    }).catch(() => { return; });
+    });
 
-    // Re-check if cancelled
-    if (!selectedFile) return;
+    if (!proceed) {
+      document.getElementById('deployBtn').disabled = false;
+      return;
+    }
   }
 
   document.getElementById('deployBtn').disabled = true;

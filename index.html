@@ -1591,7 +1591,7 @@ input[type="file"] { display: none; }
       <div class="onboard-slide active" id="slide0">
         <span class="onboard-icon">🚀</span>
         <div class="onboard-title">Deploy your<br><strong>AI-built apps</strong><br>from your phone.</div>
-        <div class="onboard-body">Push connects to your deployment platform and publishes your apps live — in one tap. No laptop. No terminal. No fuss.</div>
+        <div class="onboard-body">Push connects to your GitHub account and publishes your apps live — in one tap. No laptop. No terminal. No fuss.</div>
         <div class="onboard-steps">
           <div class="onboard-step-row">
             <div class="onboard-step-num">1</div>
@@ -1646,12 +1646,12 @@ input[type="file"] { display: none; }
       <div class="onboard-slide" id="slide2">
         <span class="onboard-icon">🔑</span>
         <div class="onboard-title">Connect<br>your<br><strong>platform.</strong></div>
-        <div class="onboard-body">Push needs an access token to deploy your apps. It's stored only on your device — never sent anywhere except directly to your platform.</div>
+        <div class="onboard-body">Push needs a GitHub Personal Access Token to deploy your apps. It's stored only on your device — never sent anywhere except directly to GitHub.</div>
         <div class="onboard-steps">
           <div class="onboard-step-row">
             <div class="onboard-step-num">1</div>
-            <div class="onboard-step-text">Go to your platform's settings
-              <span>e.g. GitHub.com → Settings</span>
+            <div class="onboard-step-text">Go to GitHub.com → Settings
+              <span>Top right profile menu → Settings</span>
             </div>
           </div>
           <div class="onboard-step-row">
@@ -1897,14 +1897,14 @@ input[type="file"] { display: none; }
     <div class="divider"></div>
 
     <!-- Platform -->
-    <div class="settings-section-label">Platform</div>
+    <div class="settings-section-label">GitHub</div>
     <div class="field">
       <label>GitHub Username</label>
       <input type="text" id="globalUsernameInput" placeholder="your-username" autocapitalize="none">
     </div>
     <div class="field">
-      <label>Access Token</label>
-      <input type="password" id="tokenInput" placeholder="Paste your token here">
+      <label>Personal Access Token</label>
+      <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxx">
     </div>
     <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:16px;">
       GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → enable <strong>repo</strong> scope. Stored only on this device.
@@ -2095,7 +2095,7 @@ function updateTokenStatus() {
   } else {
     status.innerHTML = `
       <div class="platform-status-dot"></div>
-      <span class="platform-status-text">No platform connected</span>
+      <span class="platform-status-text">No GitHub token — tap ⚙ to connect</span>
     `;
   }
 }
@@ -3214,7 +3214,7 @@ function showOnboardStep(n) {
     nextBtn.textContent = 'Next →';
     skipBtn.style.display = 'block';
   } else {
-    nextBtn.textContent = 'Connect Platform →';
+    nextBtn.textContent = 'Connect GitHub →';
     skipBtn.style.display = 'block';
   }
 }

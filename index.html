@@ -1418,6 +1418,95 @@ input[type="file"] { display: none; }
   text-align: center;
 }
 
+/* Settings sheet */
+.settings-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 16px 0 20px;
+}
+
+.settings-summary-item {
+  flex: 1;
+  text-align: center;
+}
+
+.settings-summary-value {
+  display: block;
+  font-family: 'DM Mono', monospace;
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.settings-summary-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.settings-summary-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.settings-section-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 16px 0 12px;
+}
+
+.settings-row-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+
+.settings-row-btn:active { border-color: var(--border-strong); }
+
+.settings-about-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-about-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+.settings-about-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 400;
+}
+
 /* ── Toggle ── */
 .toggle-row {
   display: flex;
@@ -1789,7 +1878,25 @@ input[type="file"] { display: none; }
 <div class="sheet-overlay" id="tokenSheet">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <div class="sheet-title">Connect Platform</div>
+    <div class="sheet-title">Settings</div>
+
+    <!-- App summary -->
+    <div class="settings-summary" id="settingsSummary">
+      <div class="settings-summary-item">
+        <span class="settings-summary-value" id="summaryApps">0</span>
+        <span class="settings-summary-label">Apps</span>
+      </div>
+      <div class="settings-summary-divider"></div>
+      <div class="settings-summary-item">
+        <span class="settings-summary-value" id="summaryDeploys">0</span>
+        <span class="settings-summary-label">Deploys</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Platform -->
+    <div class="settings-section-label">Platform</div>
     <div class="field">
       <label>GitHub Username</label>
       <input type="text" id="globalUsernameInput" placeholder="your-username" autocapitalize="none">
@@ -1798,13 +1905,44 @@ input[type="file"] { display: none; }
       <label>Access Token</label>
       <input type="password" id="tokenInput" placeholder="Paste your token here">
     </div>
-    <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:20px;">
-      For GitHub: Settings → Developer settings → Personal access tokens → Generate new token. Enable <strong>repo</strong> scope. Your token is stored only on this device.
+    <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:16px;">
+      GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → enable <strong>repo</strong> scope. Stored only on this device.
     </p>
-    <div class="sheet-actions">
+    <div class="sheet-actions" style="margin-bottom:20px">
       <button class="sheet-btn ghost" id="tokenCancel">Cancel</button>
       <button class="sheet-btn primary" id="tokenSave">Save</button>
     </div>
+
+    <div class="divider"></div>
+
+    <!-- Data -->
+    <div class="settings-section-label">Data</div>
+    <button class="settings-row-btn" id="clearDataBtn">
+      <span>Clear all local data</span>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="opacity:0.4">
+        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    <div class="divider"></div>
+
+    <!-- About -->
+    <div class="settings-section-label">About</div>
+    <div class="settings-about-row">
+      <span class="settings-about-label">Version</span>
+      <span class="settings-about-value">1.0.0</span>
+    </div>
+    <div class="settings-about-row">
+      <span class="settings-about-label">Built with</span>
+      <span class="settings-about-value">Claude</span>
+    </div>
+    <a class="settings-row-btn" href="https://github.com/tinq777/push/issues/new" target="_blank" style="text-decoration:none;margin-top:8px">
+      <span>Submit feedback</span>
+      <svg width="11" height="11" viewBox="0 0 15 15" fill="none" style="opacity:0.4">
+        <path d="M3 2h9a1 1 0 011 1v9M13 2L2 13" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </a>
+
   </div>
 </div>
 
@@ -2806,8 +2944,25 @@ document.getElementById('backBtn').addEventListener('click', () => {
 function openTokenSheet() {
   document.getElementById('globalUsernameInput').value = globalUsername;
   document.getElementById('tokenInput').value = token;
+
+  // Populate summary
+  document.getElementById('summaryApps').textContent = apps.length;
+  const totalDeploys = apps.reduce((sum, app) => {
+    const hist = store.get(`push_history_${app.id}`) || [];
+    return sum + hist.length;
+  }, 0);
+  document.getElementById('summaryDeploys').textContent = totalDeploys;
+
   document.getElementById('tokenSheet').classList.add('open');
 }
+
+document.getElementById('clearDataBtn').addEventListener('click', () => {
+  if (confirm('Clear all local data? This removes your apps, token and history from this device. Your GitHub repos will not be affected.')) {
+    localStorage.clear();
+    showToast('Data cleared');
+    location.reload();
+  }
+});
 
 document.getElementById('globalSettingsBtn').addEventListener('click', openTokenSheet);
 document.getElementById('tokenCancel').addEventListener('click', () => {
@@ -3303,14 +3458,13 @@ updateTokenStatus();
 renderApps();
 checkOnboard();
 
-// If token exists, try to restore config from GitHub silently
+// Track app open and restore config
 if (token && globalUsername) {
   restoreConfigFromGitHub().then(restored => {
     if (restored) {
       renderApps();
       updateTokenStatus();
     } else {
-      // No config found remotely — ensure repo exists and sync current state
       ensureConfigRepo().then(() => syncConfigToGitHub());
     }
   });

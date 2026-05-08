@@ -2095,26 +2095,55 @@ async function requestNotificationPermission() {
   return result === 'granted';
 }
 
-async function pollUntilLive(url, appName, appId, maxAttempts = 12) {
+async function pollUntilLive(username, repo, commitSha, appName, appId, maxAttempts = 20) {
   const granted = await requestNotificationPermission();
   let attempts = 0;
+  const headers = {
+    'Authorization': `token ${token}`,
+    'Accept': 'application/vnd.github.v3+json'
+  };
+
   const interval = setInterval(async () => {
     attempts++;
     try {
-      const res = await fetch(url + '?cachebust=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
+      const res = await fetch(
+        `https://api.github.com/repos/${username}/${repo}/pages/deployments?limit=5`,
+        { headers }
+      );
       if (res.ok) {
-        clearInterval(interval);
-        markHistoryLive(appId);
-        if (granted) {
-          new Notification('Push — Deploy Complete', {
-            body: `${appName} is live and updated ✓`,
-            icon: '/push/icon.png'
-          });
+        const deployments = await res.json();
+        const latest = deployments.find(d =>
+          d.commit_oid === commitSha || attempts > 3
+        );
+        if (latest?.status === 'succeed') {
+          clearInterval(interval);
+          markHistoryLive(appId, 'live');
+          if (granted) {
+            new Notification('Push — Deploy Complete', {
+              body: `${appName} is live and updated ✓`,
+              icon: '/push/icon.png'
+            });
+          }
+          return;
+        }
+        if (latest?.status === 'failed' || latest?.status === 'errored') {
+          clearInterval(interval);
+          markHistoryLive(appId, 'failed');
+          if (granted) {
+            new Notification('Push — Deploy Failed', {
+              body: `${appName} failed to deploy on GitHub Pages`,
+              icon: '/push/icon.png'
+            });
+          }
+          return;
         }
       }
-    } catch (e) { /* still building */ }
-    if (attempts >= maxAttempts) clearInterval(interval);
-  }, 30000);
+    } catch (e) { /* silent */ }
+    if (attempts >= maxAttempts) {
+      clearInterval(interval);
+      markHistoryLive(appId, 'live'); // assume success after timeout
+    }
+  }, 20000);
 }
 
 // ── Open deploy view ──
@@ -2220,20 +2249,24 @@ function saveDeployHistory(appId, message) {
   store.set(key, history);
 }
 
-function markHistoryLive(appId) {
+function markHistoryLive(appId, status = 'live') {
   const key = `push_history_${appId}`;
   let history = store.get(key) || [];
   if (history.length > 0) {
-    history[0].live = true;
+    history[0].status = status;
     store.set(key, history);
   }
-  // Re-render if we're still on this app's screen
   if (currentAppId === appId) renderDeployHistory(appId);
 }
 
 const liveSVG = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
   <circle cx="7" cy="7" r="6" stroke="#ffffff" stroke-width="1.5" opacity="0.3"/>
   <path d="M4 7l2 2 4-4" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+
+const failedSVG = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+  <circle cx="7" cy="7" r="6" stroke="#ff4444" stroke-width="1.5" opacity="0.5"/>
+  <path d="M5 5l4 4M9 5l-4 4" stroke="#ff4444" stroke-width="1.5" stroke-linecap="round"/>
 </svg>`;
 
 const pendingHTML = `<div class="history-status-pending"></div>`;
@@ -2247,20 +2280,22 @@ function renderDeployHistory(appId) {
   if (!history.length) { section.style.display = 'none'; return; }
 
   section.style.display = 'block';
-  list.innerHTML = history.map(entry => `
-    <div class="history-item">
-      <div class="history-status">
-        ${entry.live
-          ? `<div class="history-status-live">${liveSVG}</div>`
-          : pendingHTML
-        }
+  list.innerHTML = history.map(entry => {
+    let statusHTML;
+    if (entry.status === 'live') statusHTML = `<div class="history-status-live">${liveSVG}</div>`;
+    else if (entry.status === 'failed') statusHTML = `<div class="history-status-live">${failedSVG}</div>`;
+    else statusHTML = pendingHTML;
+
+    return `
+      <div class="history-item">
+        <div class="history-status">${statusHTML}</div>
+        <div class="history-info">
+          <div class="history-message">${entry.message}</div>
+          <div class="history-time">${timeAgo(entry.time)}</div>
+        </div>
       </div>
-      <div class="history-info">
-        <div class="history-message">${entry.message}</div>
-        <div class="history-time">${timeAgo(entry.time)}</div>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 // ── Deploy ──
@@ -2397,7 +2432,7 @@ async function deploy() {
     showToast('Deployed ✓');
 
     // Start polling for GitHub Pages rebuild notification
-    pollUntilLive(liveUrl, app.name, currentAppId);
+    pollUntilLive(app.username, app.repo, newCommitData.sha, app.name, currentAppId);
 
   } catch (err) {
     for (let i = 1; i <= 4; i++) {

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.counter.dev https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://api.github.com; script-src 'self' 'unsafe-inline' https://cdn.counter.dev https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://api.github.com https://cdn.counter.dev https://raw.githubusercontent.com;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.counter.dev https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://api.github.com; script-src 'self' 'unsafe-inline' https://cdn.counter.dev https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://api.github.com https://cdn.counter.dev;">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -2894,66 +2894,30 @@ async function scanLiveApp(app) {
   showToast('Scanning live app…');
 
   try {
-    // Try raw.githubusercontent.com first
-    const rawUrl = `https://raw.githubusercontent.com/${app.username}/${app.repo}/${app.branch || 'main'}/index.html`;
+    const branch = app.branch || 'main';
+    const apiUrl = `https://api.github.com/repos/${app.username}/${app.repo}/contents/index.html?ref=${branch}`;
 
-    let res = await fetch(rawUrl, {
+    const res = await fetch(apiUrl, {
       headers: {
         'Authorization': `token ${token}`,
-        'Accept': 'application/vnd.github.v3.raw'
-      },
-      cache: 'no-store'
+        'Accept': 'application/vnd.github.v3+json'
+      }
     });
 
-    // Fallback — try GitHub API contents endpoint
+    btn.classList.remove('scanning');
+
     if (!res.ok) {
-      const apiUrl = `https://api.github.com/repos/${app.username}/${app.repo}/contents/index.html`;
-      res = await fetch(apiUrl, {
-        headers: {
-          'Authorization': `token ${token}`,
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const html = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
-        btn.classList.remove('scanning');
-        processScanResult(html, app);
-        return;
-      }
-
-      showToast(`Scan failed (${res.status}) — is index.html in your repo?`);
-      btn.classList.remove('scanning');
+      showToast(`Scan failed (${res.status})`);
       return;
     }
 
-    const html = await res.text();
-    btn.classList.remove('scanning');
+    const data = await res.json();
+    const html = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
     processScanResult(html, app);
 
   } catch (e) {
-    btn.classList.remove('scanning');
-    // Show error details in security sheet
-    document.getElementById('securitySheetTitle').textContent = 'Scan Failed';
-    document.getElementById('securitySummary').innerHTML = `<div class="security-badge critical">${secIcons.critical} Error</div>`;
-    document.getElementById('securityFindings').innerHTML = `
-      <div class="security-finding critical">
-        <div class="security-finding-icon">${secIcons.critical}</div>
-        <div class="security-finding-body">
-          <div class="security-finding-title">Could not fetch app files</div>
-          <div class="security-finding-detail">${sanitise(e.message || 'Unknown error')}</div>
-          <div class="security-finding-file">URL: raw.githubusercontent.com/${sanitise(app.username)}/${sanitise(app.repo)}/${sanitise(app.branch || 'main')}/index.html</div>
-        </div>
-      </div>`;
-    document.getElementById('copyReportBtn').style.display = 'none';
-    document.getElementById('securityContinue').style.display = 'none';
-    document.getElementById('securityCancel').textContent = 'Close';
-    document.getElementById('securitySheet').classList.add('open');
-    document.getElementById('securityCancel').onclick = () => {
-      document.getElementById('securitySheet').classList.remove('open');
-      document.getElementById('securityCancel').textContent = 'Cancel';
-    };
+    document.getElementById('scanLiveBtn').classList.remove('scanning');
+    showToast('Scan error: ' + (e.message || 'unknown'));
   }
 }
 

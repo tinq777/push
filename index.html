@@ -2907,7 +2907,8 @@ async function scanLiveApp(app) {
     btn.classList.remove('scanning');
 
     if (!res.ok) {
-      showToast(`Scan failed (${res.status})`);
+      const errText = `Scan failed — HTTP ${res.status}\nApp: ${app.name}\nRepo: ${app.username}/${app.repo}\nBranch: ${app.branch || 'main'}`;
+      showSecurityError('Scan Failed', `HTTP ${res.status} — check that index.html exists on branch: ${app.branch || 'main'}`, errText);
       return;
     }
 
@@ -2917,8 +2918,37 @@ async function scanLiveApp(app) {
 
   } catch (e) {
     document.getElementById('scanLiveBtn').classList.remove('scanning');
-    showToast('Scan error: ' + (e.message || 'unknown'));
+    const errText = `Scan error: ${e.message || 'unknown'}\nApp: ${app.name}`;
+    showSecurityError('Scan Error', e.message || 'Unknown error', errText);
   }
+}
+
+function showSecurityError(title, detail, copyText) {
+  document.getElementById('scanLiveBtn').classList.remove('scanning');
+  document.getElementById('securitySheetTitle').textContent = title;
+  document.getElementById('securitySummary').innerHTML = `<div class="security-badge critical">${secIcons.critical} Error</div>`;
+  document.getElementById('securityFindings').innerHTML = `
+    <div class="security-finding critical">
+      <div class="security-finding-icon">${secIcons.critical}</div>
+      <div class="security-finding-body">
+        <div class="security-finding-title">Could not complete scan</div>
+        <div class="security-finding-detail">${sanitise(detail)}</div>
+      </div>
+    </div>`;
+  const copyBtn = document.getElementById('copyReportBtn');
+  copyBtn.style.display = 'flex';
+  copyBtn.querySelector('span').textContent = 'Copy error details';
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(copyText).then(() => showToast('Error copied'));
+  };
+  document.getElementById('securityContinue').style.display = 'none';
+  document.getElementById('securityCancel').textContent = 'Close';
+  document.getElementById('securitySheet').classList.add('open');
+  document.getElementById('securityCancel').onclick = () => {
+    document.getElementById('securitySheet').classList.remove('open');
+    document.getElementById('securityCancel').textContent = 'Cancel';
+    copyBtn.querySelector('span').textContent = 'Copy report to fix with AI';
+  };
 }
 
 function processScanResult(html, app) {

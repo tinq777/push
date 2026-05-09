@@ -2971,8 +2971,8 @@ function processScanResult(html, app) {
   renderSecuritySheet(findings);
 
   document.getElementById('securitySheetTitle').textContent = findings.length === 0
-    ? '✓ Live App — Clean'
-    : 'Live App Scan Results';
+    ? '✓ Security Scan — Clean'
+    : 'Security Scan Results';
 
   document.getElementById('securityContinue').style.display = 'none';
   document.getElementById('securityCancel').textContent = 'Close';

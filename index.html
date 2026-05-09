@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.counter.dev https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://api.github.com; script-src 'self' 'unsafe-inline' https://cdn.counter.dev https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://api.github.com https://cdn.counter.dev;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.counter.dev https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://api.github.com; script-src 'self' 'unsafe-inline' https://cdn.counter.dev https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://api.github.com https://cdn.counter.dev https://raw.githubusercontent.com;">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -2678,7 +2678,6 @@ function scanFiles(files) {
   const findings = [];
 
   for (const file of files) {
-    // Only scan text-based files
     const isTextFile = /\.(html|htm|js|css|json|ts|jsx|tsx|vue|svelte|md|txt|xml|svg)$/i.test(file.path);
     if (!isTextFile) continue;
 
@@ -2687,27 +2686,65 @@ function scanFiles(files) {
       content = atob(file.content);
     } catch (e) { continue; }
 
-    for (const rule of SECURITY_RULES) {
-      const matches = content.match(rule.pattern);
-      if (matches) {
-        // Redact sensitive values in detail
-        const sample = matches[0].length > 40
-          ? matches[0].slice(0, 20) + '...' + matches[0].slice(-8)
-          : matches[0];
+    // Strip known third-party library blocks before scanning
+    // Remove content between <script src="...cdnjs..."> loaded inline or JSZip signatures
+    let userCode = content
+      // Remove JSZip library block (identified by its signature)
+      .replace(/\bfunction\s+JSZip[\s\S]{100,50000}?(?=\n<\/script>|\nfunction\s+[A-Z]|\n\/\/\s)/g, '/* [library removed] */')
+      // Remove minified single lines over 300 chars (library code)
+      .split('\n').map(l => l.length > 300 ? '/* [minified line removed] */' : l).join('\n')
+      // Remove block comments
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      // Remove line comments
+      .replace(/\/\/.*/g, '');
 
-        findings.push({
-          level: rule.level,
-          title: rule.title,
-          detail: rule.detail,
-          sample: rule.level === 'critical' ? '(redacted for safety)' : sample,
-          file: file.path,
-          count: matches.length
-        });
+    for (const rule of SECURITY_RULES) {
+      const scanTarget = rule.level === 'critical' ? content : userCode;
+      let matches;
+
+      if (rule.title === 'innerHTML with variable') {
+        // Only flag innerHTML NOT followed by sanitise()
+        const unsanitised = [];
+        const regex = /\.innerHTML\s*=/g;
+        let m;
+        while ((m = regex.exec(userCode)) !== null) {
+          const after = userCode.slice(m.index + m[0].length, m.index + m[0].length + 80);
+          const before = userCode.slice(Math.max(0, m.index - 20), m.index);
+          // Skip if assigned a static string or sanitise() wraps it
+          if (after.trim().startsWith('"') || after.trim().startsWith("'") || after.trim().startsWith('`<')) continue;
+          if (after.includes('sanitise(')) continue;
+          if (before.includes('textContent')) continue;
+          unsanitised.push(m[0]);
+        }
+        if (!unsanitised.length) continue;
+        matches = unsanitised;
+
+      } else if (rule.title === 'External script without SRI') {
+        const trustedSrcs = ['cdnjs.cloudflare.com', 'cdn.counter.dev', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+        const allMatches = content.match(rule.pattern) || [];
+        matches = allMatches.filter(m => !trustedSrcs.some(cdn => m.includes(cdn)));
+        if (!matches.length) continue;
+
+      } else {
+        matches = scanTarget.match(rule.pattern);
+        if (!matches) continue;
       }
+
+      const sample = matches[0].length > 40
+        ? matches[0].slice(0, 20) + '...' + matches[0].slice(-8)
+        : matches[0];
+
+      findings.push({
+        level: rule.level,
+        title: rule.title,
+        detail: rule.detail,
+        sample: rule.level === 'critical' ? '(redacted for safety)' : sample,
+        file: file.path,
+        count: matches.length
+      });
     }
   }
 
-  // Sort by severity
   const order = { critical: 0, warning: 1, info: 2 };
   return findings.sort((a, b) => order[a.level] - order[b.level]);
 }

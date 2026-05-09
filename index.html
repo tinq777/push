@@ -2934,7 +2934,26 @@ async function scanLiveApp(app) {
 
   } catch (e) {
     btn.classList.remove('scanning');
-    showToast('Scan failed — ' + (e.message || 'check connection'));
+    // Show error details in security sheet
+    document.getElementById('securitySheetTitle').textContent = 'Scan Failed';
+    document.getElementById('securitySummary').innerHTML = `<div class="security-badge critical">${secIcons.critical} Error</div>`;
+    document.getElementById('securityFindings').innerHTML = `
+      <div class="security-finding critical">
+        <div class="security-finding-icon">${secIcons.critical}</div>
+        <div class="security-finding-body">
+          <div class="security-finding-title">Could not fetch app files</div>
+          <div class="security-finding-detail">${sanitise(e.message || 'Unknown error')}</div>
+          <div class="security-finding-file">URL: raw.githubusercontent.com/${sanitise(app.username)}/${sanitise(app.repo)}/${sanitise(app.branch || 'main')}/index.html</div>
+        </div>
+      </div>`;
+    document.getElementById('copyReportBtn').style.display = 'none';
+    document.getElementById('securityContinue').style.display = 'none';
+    document.getElementById('securityCancel').textContent = 'Close';
+    document.getElementById('securitySheet').classList.add('open');
+    document.getElementById('securityCancel').onclick = () => {
+      document.getElementById('securitySheet').classList.remove('open');
+      document.getElementById('securityCancel').textContent = 'Cancel';
+    };
   }
 }
 

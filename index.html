@@ -2895,25 +2895,38 @@ async function scanLiveApp(app) {
 
   try {
     const branch = app.branch || 'main';
-    const apiUrl = `https://api.github.com/repos/${app.username}/${app.repo}/contents/index.html?ref=${branch}`;
 
-    const res = await fetch(apiUrl, {
-      headers: {
-        'Authorization': `token ${token}`,
-        'Accept': 'application/vnd.github.v3+json'
-      }
-    });
+    // Step 1: Get the latest commit SHA for the branch
+    const refRes = await fetch(
+      `https://api.github.com/repos/${app.username}/${app.repo}/git/ref/heads/${branch}`,
+      { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
+    );
+    if (!refRes.ok) throw new Error(`Branch not found: ${branch}`);
+    const refData = await refRes.json();
+    const commitSha = refData.object.sha;
+
+    // Step 2: Get the tree for that commit
+    const treeRes = await fetch(
+      `https://api.github.com/repos/${app.username}/${app.repo}/git/trees/${commitSha}`,
+      { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
+    );
+    if (!treeRes.ok) throw new Error('Could not read repo tree');
+    const treeData = await treeRes.json();
+
+    // Step 3: Find index.html blob SHA
+    const indexFile = treeData.tree.find(f => f.path === 'index.html');
+    if (!indexFile) throw new Error('index.html not found in repo root');
+
+    // Step 4: Fetch the blob content
+    const blobRes = await fetch(
+      `https://api.github.com/repos/${app.username}/${app.repo}/git/blobs/${indexFile.sha}`,
+      { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
+    );
+    if (!blobRes.ok) throw new Error('Could not fetch file content');
+    const blobData = await blobRes.json();
 
     btn.classList.remove('scanning');
-
-    if (!res.ok) {
-      const errText = `Scan failed — HTTP ${res.status}\nApp: ${app.name}\nRepo: ${app.username}/${app.repo}\nBranch: ${app.branch || 'main'}`;
-      showSecurityError('Scan Failed', `HTTP ${res.status} — check that index.html exists on branch: ${app.branch || 'main'}`, errText);
-      return;
-    }
-
-    const data = await res.json();
-    const html = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
+    const html = decodeURIComponent(escape(atob(blobData.content.replace(/\n/g, ''))));
     processScanResult(html, app);
 
   } catch (e) {

@@ -908,6 +908,16 @@ input[type="file"] { display: none; }
 
 .result-btn:active { opacity: 0.7; }
 
+.history-version {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: #ffffff;
+  background: var(--border-strong);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 400;
+}
+
 /* Scan live button */
 .scan-live-btn {
   display: flex;
@@ -2042,13 +2052,37 @@ input[type="file"] { display: none; }
       <label>Personal Access Token</label>
       <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxx" maxlength="100">
     </div>
-    <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:16px;">
-      GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → enable <strong>repo</strong> scope. Stored only on this device.
+
+    <!-- Remember token toggle -->
+    <div class="toggle-row" id="rememberTokenRow" style="margin-bottom:12px">
+      <div class="toggle-info">
+        <div class="toggle-label">Remember token on this device</div>
+        <div class="toggle-sub">Off = session only, cleared when app closes</div>
+      </div>
+      <div class="toggle" id="rememberTokenToggle">
+        <div class="toggle-knob"></div>
+      </div>
+    </div>
+
+    <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:8px;">
+      Use a <strong>fine-grained token</strong> for better security — limit access to Push repos only with Contents and Pages permissions. <a href="https://github.com/settings/tokens" target="_blank" style="color:#ffffff;opacity:0.6;text-decoration:none;border-bottom:1px solid #333">GitHub token settings ↗</a>
     </p>
-    <div class="sheet-actions" style="margin-bottom:20px">
+    <p style="font-size:12px;color:#ff444488;line-height:1.5;margin-bottom:16px;">
+      🔒 If you lose your device, revoke your token immediately at github.com/settings/tokens
+    </p>
+
+    <div class="sheet-actions" style="margin-bottom:12px">
       <button class="sheet-btn ghost" id="tokenCancel">Cancel</button>
       <button class="sheet-btn primary" id="tokenSave">Save</button>
     </div>
+
+    <!-- Disconnect button — only shown when connected -->
+    <button class="settings-row-btn" id="disconnectBtn" style="display:none;margin-bottom:20px;border-color:#ff444433;color:#ff4444">
+      <span>Disconnect GitHub</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="opacity:0.6">
+        <path d="M18 6L6 18M6 6l12 12" stroke="#ff4444" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
 
     <div class="divider"></div>
 
@@ -2231,8 +2265,12 @@ const store = {
 
 // ── State ──
 let apps = store.get('push_apps') || [];
-let token = store.get('push_token') || '';
-let globalUsername = store.get('push_username') || '';
+// Token can be stored in localStorage (persistent) or sessionStorage (session only)
+let rememberToken = store.get('push_remember_token') !== false; // default true for existing users
+let token = rememberToken
+  ? (store.get('push_token') || sessionStorage.getItem('push_token_session') || '')
+  : (sessionStorage.getItem('push_token_session') || '');
+let globalUsername = store.get('push_username') || sessionStorage.getItem('push_username_session') || '';
 let currentAppId = null;
 let selectedFile = null;
 let editingAppId = null;
@@ -2281,7 +2319,7 @@ function updateTokenStatus() {
   if (token && globalUsername) {
     status.innerHTML = `
       <div class="platform-status-dot ok"></div>
-      <span class="platform-status-text">GitHub · ${globalUsername}</span>
+      <span class="platform-status-text">GitHub · ${sanitise(globalUsername)}${rememberToken ? '' : ' · session only'}</span>
     `;
   } else {
     status.innerHTML = `
@@ -2810,6 +2848,7 @@ function renderSecuritySheet(findings) {
   const copyBtn = document.getElementById('copyReportBtn');
   if (findings.length > 0) {
     copyBtn.style.display = 'flex';
+    copyBtn.querySelector('span').textContent = 'Copy report to fix with AI';
     copyBtn.onclick = () => {
       const app = apps.find(a => a.id === currentAppId);
       const lines = [
@@ -2853,7 +2892,6 @@ function renderSecuritySheet(findings) {
       }
 
       lines.push(`Please review and fix the above issues before deploying.`);
-
       navigator.clipboard.writeText(lines.join('\n')).then(() => {
         showToast('Report copied — paste into Claude to fix');
       });
@@ -3190,7 +3228,8 @@ document.getElementById('filePillClear').addEventListener('click', () => {
 function saveDeployHistory(appId, message, details = {}) {
   const key = `push_history_${appId}`;
   let history = store.get(key) || [];
-  history.unshift({ message, time: Date.now(), live: false, ...details });
+  const version = history.length + 1;
+  history.unshift({ message, time: Date.now(), live: false, version, ...details });
   history = history.slice(0, 10);
   store.set(key, history);
 }
@@ -3243,6 +3282,11 @@ function renderDeployHistory(appId) {
 
     const expandedHTML = (entry.branch || entry.commitUrl) ? `
       <div class="history-expanded" id="expand-${entry.time}">
+        ${entry.version ? `
+        <div class="history-detail-row">
+          <span class="history-detail-label">Version</span>
+          <span class="history-detail-value">v${entry.version}</span>
+        </div>` : ''}
         ${entry.zipName ? `
         <div class="history-detail-row">
           <span class="history-detail-label">File</span>
@@ -3277,7 +3321,7 @@ function renderDeployHistory(appId) {
           <div class="history-status">${statusHTML}</div>
           <div class="history-info">
             <div class="history-message">${sanitise(entry.message)}</div>
-            <div class="history-time">${timeAgo(entry.time)}</div>
+            <div class="history-time">${entry.version ? `<span class="history-version">v${entry.version}</span> · ` : ''}${timeAgo(entry.time)}</div>
           </div>
           ${entry.branch || entry.commitUrl ? `
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink:0;margin-top:4px;opacity:0.3">
@@ -3541,6 +3585,13 @@ function openTokenSheet() {
   document.getElementById('globalUsernameInput').value = globalUsername;
   document.getElementById('tokenInput').value = token;
 
+  // Remember toggle
+  const rememberToggle = document.getElementById('rememberTokenToggle');
+  rememberToggle.classList.toggle('on', rememberToken);
+
+  // Show disconnect button only when connected
+  document.getElementById('disconnectBtn').style.display = token ? 'flex' : 'none';
+
   // Populate summary
   document.getElementById('summaryApps').textContent = apps.length;
   const totalDeploys = apps.reduce((sum, app) => {
@@ -3551,6 +3602,42 @@ function openTokenSheet() {
 
   document.getElementById('tokenSheet').classList.add('open');
 }
+
+// Remember toggle
+document.getElementById('rememberTokenRow').addEventListener('click', () => {
+  rememberToken = !rememberToken;
+  document.getElementById('rememberTokenToggle').classList.toggle('on', rememberToken);
+  store.set('push_remember_token', rememberToken);
+});
+
+// Disconnect button
+document.getElementById('disconnectBtn').addEventListener('click', () => {
+  document.getElementById('mismatchMsg').innerHTML = 'This will remove your GitHub token and username from this device. <strong>Your apps and repos will not be affected.</strong>';
+  document.getElementById('mismatchSheet').querySelector('.sheet-title').textContent = 'Disconnect GitHub?';
+  document.getElementById('mismatchContinue').textContent = 'Disconnect';
+  document.getElementById('mismatchSheet').classList.add('open');
+
+  document.getElementById('mismatchContinue').onclick = () => {
+    document.getElementById('mismatchSheet').classList.remove('open');
+    document.getElementById('mismatchContinue').textContent = 'Deploy Anyway';
+    document.getElementById('mismatchSheet').querySelector('.sheet-title').textContent = 'Wrong file?';
+    // Clear token and username from all storage
+    token = '';
+    globalUsername = '';
+    localStorage.removeItem('push_token');
+    localStorage.removeItem('push_username');
+    sessionStorage.removeItem('push_token_session');
+    sessionStorage.removeItem('push_username_session');
+    updateTokenStatus();
+    document.getElementById('tokenSheet').classList.remove('open');
+    showToast('GitHub disconnected');
+  };
+  document.getElementById('mismatchCancel').onclick = () => {
+    document.getElementById('mismatchSheet').classList.remove('open');
+    document.getElementById('mismatchContinue').textContent = 'Deploy Anyway';
+    document.getElementById('mismatchSheet').querySelector('.sheet-title').textContent = 'Wrong file?';
+  };
+});
 
 document.getElementById('clearDataBtn').addEventListener('click', () => {
   document.getElementById('mismatchMsg').innerHTML = 'This removes your apps, token and history from this device. <strong>Your GitHub repos will not be affected.</strong>';
@@ -3584,12 +3671,24 @@ document.getElementById('tokenSave').addEventListener('click', () => {
   if (!val) { showToast('Enter a token'); return; }
   globalUsername = username;
   token = val;
-  store.set('push_username', globalUsername);
-  store.set('push_token', token);
+
+  if (rememberToken) {
+    // Save permanently to localStorage
+    store.set('push_username', globalUsername);
+    store.set('push_token', token);
+    sessionStorage.removeItem('push_token_session');
+    sessionStorage.removeItem('push_username_session');
+  } else {
+    // Session only — save to sessionStorage, clear localStorage
+    sessionStorage.setItem('push_token_session', token);
+    sessionStorage.setItem('push_username_session', globalUsername);
+    localStorage.removeItem('push_token');
+    localStorage.removeItem('push_username');
+  }
+
   document.getElementById('tokenSheet').classList.remove('open');
   updateTokenStatus();
   showToast('Settings saved');
-  // Ensure config repo exists and try to restore config
   ensureConfigRepo().then(() => restoreConfigFromGitHub()).then((restored) => {
     if (restored) {
       renderApps();

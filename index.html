@@ -2007,13 +2007,16 @@ input[type="file"] { display: none; }
 
     <!-- Traffic stats -->
     <div class="stats-row" id="statsRow">
-      <div class="stat-item">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="opacity:0.4;flex-shrink:0">
-          <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke="white" stroke-width="1.5"/>
-          <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke="white" stroke-width="1.5"/>
-        </svg>
-        <span class="stat-value" id="statViews">—</span>
-        <span class="stat-label">views</span>
+      <div class="stat-item" style="flex-direction:column;align-items:flex-start;gap:2px">
+        <div style="display:flex;align-items:center;gap:4px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="opacity:0.4;flex-shrink:0">
+            <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke="white" stroke-width="1.5"/>
+            <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke="white" stroke-width="1.5"/>
+          </svg>
+          <span class="stat-value" id="statViews">—</span>
+          <span class="stat-label">repo visits</span>
+        </div>
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:#333;font-weight:300">github.com repo only</span>
       </div>
       <div class="stat-divider"></div>
       <div class="stat-item">
@@ -2025,7 +2028,7 @@ input[type="file"] { display: none; }
       </div>
       <div class="stat-divider"></div>
       <div class="stat-item">
-        <span class="stat-label" id="statPeriod">last 14 days</span>
+        <span class="stat-label" id="statPeriod">14 days</span>
       </div>
       <div class="stat-divider"></div>
       <div class="stat-item">

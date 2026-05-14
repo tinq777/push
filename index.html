@@ -3401,11 +3401,12 @@ async function fetchAppIcon(app) {
     const data = await res.json();
     const html = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
 
-    // Parse for favicon links
+    // Parse for favicon links — try apple-touch-icon first (larger)
     const iconPatterns = [
+      /<link[^>]+rel=["']apple-touch-icon["'][^>]+href=["']([^"']+)["']/i,
+      /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']apple-touch-icon["']/i,
       /<link[^>]+rel=["'](?:shortcut )?icon["'][^>]+href=["']([^"']+)["']/i,
       /<link[^>]+href=["']([^"']+)["'][^>]+rel=["'](?:shortcut )?icon["']/i,
-      /<link[^>]+rel=["']apple-touch-icon["'][^>]+href=["']([^"']+)["']/i,
     ];
 
     let iconUrl = null;
@@ -3413,6 +3414,10 @@ async function fetchAppIcon(app) {
       const match = html.match(pattern);
       if (match) {
         iconUrl = match[1];
+        // Decode URL-encoded data URIs
+        if (iconUrl.startsWith('data:') || iconUrl.includes('%3C') || iconUrl.includes('%3c')) {
+          try { iconUrl = decodeURIComponent(iconUrl); } catch (e) {}
+        }
         break;
       }
     }
@@ -3443,9 +3448,10 @@ function renderIconHTML(app, size = 'grid') {
   const sizeClass = size === 'grid' ? 'app-grid-emoji' : size === 'fav' ? 'fav-card-emoji' : 'recent-emoji';
 
   if (cached) {
-    return `<div class="${sizeClass}" style="overflow:hidden;padding:0">
+    const escapedEmoji = app.emoji.replace(/'/g, "\\'");
+    return `<div class="${sizeClass}" style="overflow:hidden;padding:0;display:flex;align-items:center;justify-content:center">
       <img src="${cached}" style="width:100%;height:100%;object-fit:cover;border-radius:10px"
-        onerror="this.parentNode.innerHTML='${app.emoji}';this.parentNode.style.padding=''">
+        onerror="this.parentNode.outerHTML='<span class=\\'${sizeClass}\\'>${escapedEmoji}</span>'">
     </div>`;
   }
   return `<span class="${sizeClass}">${app.emoji}</span>`;

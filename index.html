@@ -1537,6 +1537,87 @@ input[type="file"] { display: none; }
   font-weight: 400;
 }
 
+/* Readiness score card */
+.readiness-card {
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.readiness-score {
+  font-family: 'DM Mono', monospace;
+  font-size: 36px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 4px;
+  line-height: 1;
+}
+
+.readiness-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  font-weight: 300;
+}
+
+.readiness-bar-track {
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.readiness-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+  background: #00c969;
+}
+
+.readiness-bar-fill.medium { background: #ffaa00; }
+.readiness-bar-fill.high { background: #ff4444; }
+
+/* Issue summary button */
+.issue-summary-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.issue-summary-btn:active { border-color: var(--border-strong); }
+
+.issue-counts {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.issue-count-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.issue-count-item.critical { color: #ff4444; }
+.issue-count-item.warning { color: #ffaa00; }
+.issue-count-item.info { color: #4488ff; }
+.issue-count-item.clean { color: #00c969; }
+
 /* Security scan */
 .security-summary {
   display: flex;
@@ -2211,8 +2292,27 @@ input[type="file"] { display: none; }
   <div class="sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-title" id="securitySheetTitle">Security Scan</div>
-    <div class="security-summary" id="securitySummary"></div>
-    <div class="security-findings" id="securityFindings"></div>
+
+    <!-- Readiness score -->
+    <div class="readiness-card" id="readinessCard">
+      <div class="readiness-score" id="readinessScore">—</div>
+      <div class="readiness-label" id="readinessLabel">Calculating…</div>
+      <div class="readiness-bar-track">
+        <div class="readiness-bar-fill" id="readinessBarFill"></div>
+      </div>
+    </div>
+
+    <!-- Issue summary — tap to expand -->
+    <button class="issue-summary-btn" id="issueSummaryBtn" style="display:none">
+      <div class="issue-counts" id="issueCounts"></div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" id="issueSummaryChevron">
+        <path d="M6 9l6 6 6-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+      </svg>
+    </button>
+
+    <!-- Findings (collapsed by default) -->
+    <div class="security-findings" id="securityFindings" style="display:none"></div>
+
     <button class="settings-row-btn" id="copyReportBtn" style="margin-top:12px;display:none">
       <span>Copy report to fix with AI</span>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="opacity:0.4;flex-shrink:0">
@@ -2699,28 +2799,39 @@ const secIcons = {
 
 const SECURITY_RULES = [
   // Critical — hardcoded secrets
-  { level: 'critical', title: 'Hardcoded GitHub token', pattern: /ghp_[a-zA-Z0-9]{36}/g, detail: 'GitHub Personal Access Token found in code' },
-  { level: 'critical', title: 'Hardcoded GitHub PAT', pattern: /github_pat_[a-zA-Z0-9_]{82}/g, detail: 'GitHub fine-grained token found in code' },
-  { level: 'critical', title: 'Hardcoded OpenAI key', pattern: /sk-[a-zA-Z0-9]{48}/g, detail: 'OpenAI API key found in code' },
-  { level: 'critical', title: 'Hardcoded Anthropic key', pattern: /sk-ant-[a-zA-Z0-9\-_]{93}/g, detail: 'Anthropic API key found in code' },
-  { level: 'critical', title: 'Hardcoded AWS key', pattern: /AKIA[0-9A-Z]{16}/g, detail: 'AWS Access Key ID found in code' },
-  { level: 'critical', title: 'Hardcoded secret', pattern: /(?:secret|password|passwd|pwd)\s*[:=]\s*["'][^"']{8,}["']/gi, detail: 'Hardcoded secret or password found' },
-  { level: 'critical', title: 'Bearer token in code', pattern: /Bearer\s+[a-zA-Z0-9\-._~+/]{20,}/g, detail: 'Bearer token hardcoded in source' },
-  { level: 'critical', title: 'Private key detected', pattern: /-----BEGIN\s+(?:RSA\s+)?PRIVATE KEY-----/g, detail: 'Private key found in code' },
+  { level: 'critical', title: 'Hardcoded GitHub token', pattern: /ghp_[a-zA-Z0-9]{36}/g, detail: 'GitHub Personal Access Token found in code', confidence: 95 },
+  { level: 'critical', title: 'Hardcoded GitHub PAT', pattern: /github_pat_[a-zA-Z0-9_]{82}/g, detail: 'GitHub fine-grained token found in code', confidence: 99 },
+  { level: 'critical', title: 'Hardcoded OpenAI key', pattern: /sk-[a-zA-Z0-9]{48}/g, detail: 'OpenAI API key found in code', confidence: 90 },
+  { level: 'critical', title: 'Hardcoded Anthropic key', pattern: /sk-ant-[a-zA-Z0-9\-_]{93}/g, detail: 'Anthropic API key found in code', confidence: 99 },
+  { level: 'critical', title: 'Hardcoded AWS key', pattern: /AKIA[0-9A-Z]{16}/g, detail: 'AWS Access Key ID found in code', confidence: 95 },
+  { level: 'critical', title: 'Hardcoded Google API key', pattern: /AIza[0-9A-Za-z\-_]{35}/g, detail: 'Google API key found in code', confidence: 90 },
+  { level: 'critical', title: 'Stripe live secret key', pattern: /sk_live_[a-zA-Z0-9]{24,}/g, detail: 'Stripe live secret key found — exposes payment processing', confidence: 99 },
+  { level: 'critical', title: 'Stripe live public key', pattern: /pk_live_[a-zA-Z0-9]{24,}/g, detail: 'Stripe live publishable key found in code', confidence: 95 },
+  { level: 'critical', title: 'JWT token detected', pattern: /eyJ[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+/g, detail: 'JSON Web Token (JWT) hardcoded in source', confidence: 85 },
+  { level: 'critical', title: 'SSH private key', pattern: /-----BEGIN\s+(?:RSA|EC|DSA|OPENSSH|ED25519)\s+PRIVATE KEY-----/g, detail: 'SSH private key found in code', confidence: 99 },
+  { level: 'critical', title: 'SSH key file reference', pattern: /[\/~]\.ssh\/id_(?:rsa|ed25519|ecdsa|dsa)/g, detail: 'Reference to SSH key file found', confidence: 80 },
+  { level: 'critical', title: 'Slack bot token', pattern: /xoxb-[0-9]{10,}-[0-9]{10,}-[a-zA-Z0-9]{24}/g, detail: 'Slack bot token found in code', confidence: 99 },
+  { level: 'critical', title: 'Slack user token', pattern: /xoxp-[0-9]{10,}-[0-9]{10,}-[a-zA-Z0-9]{24}/g, detail: 'Slack user OAuth token found in code', confidence: 99 },
+  { level: 'critical', title: 'Hardcoded secret', pattern: /(?:secret|password|passwd|pwd)\s*[:=]\s*["'][^"']{8,}["']/gi, detail: 'Hardcoded secret or password found', confidence: 75 },
+  { level: 'critical', title: 'Bearer token in code', pattern: /Bearer\s+[a-zA-Z0-9\-._~+/]{20,}/g, detail: 'Bearer token hardcoded in source', confidence: 80 },
+  { level: 'critical', title: 'Private key detected', pattern: /-----BEGIN\s+(?:RSA\s+)?PRIVATE KEY-----/g, detail: 'Private key found in code', confidence: 99 },
+  { level: 'critical', title: 'Firebase API key', pattern: /AIzaSy[a-zA-Z0-9\-_]{33}/g, detail: 'Firebase API key found — check Firebase security rules', confidence: 90 },
 
   // Warning — potential issues
-  { level: 'warning', title: 'Insecure HTTP connection', pattern: /fetch\s*\(\s*["']http:\/\//g, detail: 'Using HTTP instead of HTTPS in fetch call' },
-  { level: 'warning', title: 'eval() usage', pattern: /\beval\s*\(/g, detail: 'eval() can execute arbitrary code' },
-  { level: 'warning', title: 'document.write() usage', pattern: /document\.write\s*\(/g, detail: 'document.write() is a security risk' },
-  { level: 'warning', title: 'innerHTML with variable', pattern: /\.innerHTML\s*=\s*(?!["'`]<)/g, detail: 'innerHTML assignment with variable — XSS risk if unsanitised' },
-  { level: 'warning', title: 'Hardcoded IP address', pattern: /https?:\/\/(?:\d{1,3}\.){3}\d{1,3}/g, detail: 'Hardcoded IP address in network call' },
-  { level: 'warning', title: 'localStorage with sensitive key', pattern: /localStorage\.setItem\s*\(\s*["'](?:token|secret|password|key|auth)/gi, detail: 'Sensitive data stored in localStorage' },
+  { level: 'warning', title: '.env variable in frontend', pattern: /process\.env\.[A-Z_]+/g, detail: 'process.env reference found — env vars are not available in browser', confidence: 85 },
+  { level: 'warning', title: 'dotenv import detected', pattern: /require\s*\(\s*['"]dotenv['"]\s*\)|import.*dotenv/g, detail: 'dotenv imported in frontend code — will not work in browser', confidence: 90 },
+  { level: 'warning', title: 'Insecure HTTP connection', pattern: /fetch\s*\(\s*["']http:\/\//g, detail: 'Using HTTP instead of HTTPS in fetch call', confidence: 90 },
+  { level: 'warning', title: 'eval() usage', pattern: /\beval\s*\(/g, detail: 'eval() can execute arbitrary code', confidence: 80 },
+  { level: 'warning', title: 'document.write() usage', pattern: /document\.write\s*\(/g, detail: 'document.write() is a security risk', confidence: 85 },
+  { level: 'warning', title: 'innerHTML with variable', pattern: /\.innerHTML\s*=\s*(?!["'`]<)/g, detail: 'innerHTML assignment with variable — XSS risk if unsanitised', confidence: 70 },
+  { level: 'warning', title: 'Hardcoded IP address', pattern: /https?:\/\/(?:\d{1,3}\.){3}\d{1,3}/g, detail: 'Hardcoded IP address in network call', confidence: 75 },
+  { level: 'warning', title: 'localStorage with sensitive key', pattern: /localStorage\.setItem\s*\(\s*["'](?:token|secret|password|key|auth)/gi, detail: 'Sensitive data stored in localStorage', confidence: 80 },
 
   // Info — best practice
-  { level: 'info', title: 'External script without SRI', pattern: /<script\s+src=["'][^"']+["'](?![^>]*integrity)[^>]*>/g, detail: 'External script loaded without integrity check' },
-  { level: 'info', title: 'console.log in production', pattern: /console\.log\s*\(/g, detail: 'Debug logs found — consider removing before deploy' },
-  { level: 'info', title: 'TODO or FIXME comment', pattern: /\/\/\s*(?:TODO|FIXME|HACK|XXX)/gi, detail: 'Unresolved code comment found' },
-  { level: 'info', title: 'Hardcoded localhost', pattern: /localhost:\d+/g, detail: 'Localhost URL found — may not work in production' },
+  { level: 'info', title: 'External script without SRI', pattern: /<script\s+src=["'][^"']+["'](?![^>]*integrity)[^>]*>/g, detail: 'External script loaded without integrity check', confidence: 85 },
+  { level: 'info', title: 'console.log in production', pattern: /console\.log\s*\(/g, detail: 'Debug logs found — consider removing before deploy', confidence: 90 },
+  { level: 'info', title: 'TODO or FIXME comment', pattern: /\/\/\s*(?:TODO|FIXME|HACK|XXX)/gi, detail: 'Unresolved code comment found', confidence: 95 },
+  { level: 'info', title: 'Hardcoded localhost', pattern: /localhost:\d+/g, detail: 'Localhost URL found — may not work in production', confidence: 90 },
 ];
 
 function scanFiles(files) {
@@ -2798,50 +2909,88 @@ function scanFiles(files) {
   return findings.sort((a, b) => order[a.level] - order[b.level]);
 }
 
-function renderSecuritySheet(findings) {
+function calculateReadiness(findings) {
+  if (findings.length === 0) return { score: 100, label: '✓ Ready to deploy', risk: 'clean' };
+
   const critical = findings.filter(f => f.level === 'critical').length;
   const warning = findings.filter(f => f.level === 'warning').length;
   const info = findings.filter(f => f.level === 'info').length;
 
-  // Title
-  document.getElementById('securitySheetTitle').textContent = critical > 0
-    ? '⚠ Security Issues Found'
-    : 'Security Scan Results';
+  let score = 100;
+  score -= critical * 30;
+  score -= warning * 8;
+  score -= info * 2;
+  score = Math.max(0, Math.min(100, score));
 
-  // Summary badges
-  const summary = document.getElementById('securitySummary');
-  if (findings.length === 0) {
-    summary.innerHTML = `<div class="security-badge clean">${secIcons.clean} Clean — no issues found</div>`;
+  let label, risk;
+  if (critical > 0) {
+    label = '🔴 High Risk — Fix critical issues before deploying';
+    risk = 'high';
+  } else if (score >= 70) {
+    label = '🟡 Medium Risk — Safe to deploy with caution';
+    risk = 'medium';
   } else {
-    summary.innerHTML = [
-      critical > 0 ? `<div class="security-badge critical">${secIcons.critical} ${critical} Critical</div>` : '',
-      warning > 0 ? `<div class="security-badge warning">${secIcons.warning} ${warning} Warning</div>` : '',
-      info > 0 ? `<div class="security-badge info">${secIcons.info} ${info} Info</div>` : ''
-    ].join('');
+    label = '🟢 Low Risk — Good to deploy';
+    risk = 'low';
   }
 
-  // Findings list
-  const list = document.getElementById('securityFindings');
+  return { score, label, risk };
+}
+
+function renderSecuritySheet(findings) {
+  const critical = findings.filter(f => f.level === 'critical').length;
+  const warning = findings.filter(f => f.level === 'warning').length;
+  const info = findings.filter(f => f.level === 'info').length;
+  const { score, label, risk } = calculateReadiness(findings);
+
+  // Title
+  document.getElementById('securitySheetTitle').textContent = 'Security Scan';
+
+  // Readiness score card
+  document.getElementById('readinessScore').textContent = findings.length === 0 ? '100%' : `${score}%`;
+  document.getElementById('readinessLabel').textContent = label;
+  const bar = document.getElementById('readinessBarFill');
+  bar.style.width = `${score}%`;
+  bar.className = 'readiness-bar-fill';
+  if (risk === 'high') bar.classList.add('high');
+  else if (risk === 'medium') bar.classList.add('medium');
+
+  // Issue summary button
+  const summaryBtn = document.getElementById('issueSummaryBtn');
+  const findingsList = document.getElementById('securityFindings');
+  let findingsOpen = false;
+
   if (findings.length === 0) {
-    list.innerHTML = `
-      <div class="security-finding info" style="border-color:#00c96933">
-        <div class="security-finding-icon" style="background:#0a1f14">${secIcons.clean}</div>
-        <div class="security-finding-body">
-          <div class="security-finding-title">No vulnerabilities detected</div>
-          <div class="security-finding-detail">Your app passed all security checks</div>
-        </div>
-      </div>`;
+    summaryBtn.style.display = 'none';
+    findingsList.style.display = 'none';
   } else {
-    list.innerHTML = findings.map(f => `
+    summaryBtn.style.display = 'flex';
+
+    const counts = document.getElementById('issueCounts');
+    counts.innerHTML = [
+      critical > 0 ? `<span class="issue-count-item critical">${secIcons.critical} ${critical} Critical</span>` : '',
+      warning > 0 ? `<span class="issue-count-item warning">${secIcons.warning} ${warning} Warning</span>` : '',
+      info > 0 ? `<span class="issue-count-item info">${secIcons.info} ${info} Info</span>` : ''
+    ].join('');
+
+    // Build findings list
+    findingsList.innerHTML = findings.map(f => `
       <div class="security-finding ${f.level}">
         <div class="security-finding-icon">${secIcons[f.level]}</div>
         <div class="security-finding-body">
-          <div class="security-finding-title">${sanitise(f.title)}</div>
+          <div class="security-finding-title">${sanitise(f.title)}${f.confidence ? ` <span style="font-family:'DM Mono',monospace;font-size:9px;opacity:0.5;font-weight:300">${f.confidence}% confidence</span>` : ''}</div>
           <div class="security-finding-detail">${sanitise(f.detail)}</div>
           <div class="security-finding-file">${sanitise(f.file)}${f.count > 1 ? ` · ${f.count} occurrences` : ''}</div>
         </div>
       </div>
     `).join('');
+
+    // Toggle findings on tap
+    summaryBtn.onclick = () => {
+      findingsOpen = !findingsOpen;
+      findingsList.style.display = findingsOpen ? 'flex' : 'none';
+      document.getElementById('issueSummaryChevron').style.transform = findingsOpen ? 'rotate(180deg)' : '';
+    };
   }
 
   // Copy report button
@@ -2855,31 +3004,30 @@ function renderSecuritySheet(findings) {
         `Push Security Scan Report`,
         `App: ${app ? app.name : 'Unknown'}`,
         `Scanned: ${new Date().toLocaleString()}`,
+        `Deploy Readiness: ${score}% — ${label}`,
         ``
       ];
 
       if (critical > 0) {
         lines.push(`🔴 CRITICAL (${critical})`);
         findings.filter(f => f.level === 'critical').forEach(f => {
-          lines.push(`• ${f.title}`);
+          lines.push(`• ${f.title}${f.confidence ? ` (${f.confidence}% confidence)` : ''}`);
           lines.push(`  File: ${f.file}`);
           lines.push(`  Detail: ${f.detail}`);
           if (f.count > 1) lines.push(`  Occurrences: ${f.count}`);
           lines.push(``);
         });
       }
-
       if (warning > 0) {
         lines.push(`🟡 WARNING (${warning})`);
         findings.filter(f => f.level === 'warning').forEach(f => {
-          lines.push(`• ${f.title}`);
+          lines.push(`• ${f.title}${f.confidence ? ` (${f.confidence}% confidence)` : ''}`);
           lines.push(`  File: ${f.file}`);
           lines.push(`  Detail: ${f.detail}`);
           if (f.count > 1) lines.push(`  Occurrences: ${f.count}`);
           lines.push(``);
         });
       }
-
       if (info > 0) {
         lines.push(`🔵 INFO (${info})`);
         findings.filter(f => f.level === 'info').forEach(f => {
@@ -2890,7 +3038,6 @@ function renderSecuritySheet(findings) {
           lines.push(``);
         });
       }
-
       lines.push(`Please review and fix the above issues before deploying.`);
       navigator.clipboard.writeText(lines.join('\n')).then(() => {
         showToast('Report copied — paste into Claude to fix');
@@ -3019,10 +3166,7 @@ function processScanResult(html, app) {
   const findings = scanFiles(files);
   renderSecuritySheet(findings);
 
-  document.getElementById('securitySheetTitle').textContent = findings.length === 0
-    ? '✓ Security Scan — Clean'
-    : 'Security Scan Results';
-
+  document.getElementById('securitySheetTitle').textContent = 'Security Scan — Live App';
   document.getElementById('securityContinue').style.display = 'none';
   document.getElementById('securityCancel').textContent = 'Close';
   document.getElementById('securitySheet').classList.add('open');

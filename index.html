@@ -2302,7 +2302,7 @@ input[type="file"] { display: none; }
         <input type="text" id="cfWorkerInput" placeholder="my-worker" maxlength="100" autocapitalize="none">
       </div>
       <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px">
-        Your ZIP should contain <strong>index.html</strong> (→ GitHub Pages) and a <strong>.js</strong> file (→ Cloudflare Workers). Push deploys both automatically.
+        Your ZIP should contain <strong>index.html</strong> (→ GitHub Pages) and <strong>worker.js</strong> (→ Cloudflare Workers). Push deploys both automatically. Ask Claude to name your worker file <strong>worker.js</strong>.
         <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" style="color:#ffffff;opacity:0.6;text-decoration:none;border-bottom:1px solid #333">Get CF token ↗</a>
       </p>
     </div>
@@ -3886,12 +3886,13 @@ async function deploy() {
 
     // Deploy to Cloudflare Workers if enabled
     if (app.cfEnabled) {
-      // Find worker JS file in ZIP
-      const workerFile = files.find(f =>
-        f.path.endsWith('.js') &&
-        !f.path.includes('node_modules') &&
-        f.path !== 'index.js' // skip if named index.js which might be the app
-      );
+      // Look for worker file — priority order
+      const workerFile = 
+        files.find(f => f.path === 'worker.js') ||
+        files.find(f => f.path === 'worker.mjs') ||
+        files.find(f => f.path.endsWith('/worker.js')) ||
+        files.find(f => f.path.endsWith('/worker.mjs')) ||
+        files.find(f => f.path.toLowerCase().includes('worker') && f.path.endsWith('.js'));
 
       if (workerFile) {
         showToast('Deploying to Cloudflare…');
@@ -3903,7 +3904,7 @@ async function deploy() {
           showToast('CF deploy failed: ' + err.message);
         }
       } else {
-        showToast('No .js worker file found in ZIP');
+        showToast('No worker.js found in ZIP — skipping CF deploy');
       }
     }
 

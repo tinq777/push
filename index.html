@@ -695,6 +695,16 @@ body {
   flex-shrink: 0;
 }
 
+.deploy-section-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+
 /* Drop zone */
 .drop-zone {
   border: 1.5px dashed var(--border-strong);
@@ -2042,6 +2052,10 @@ input[type="file"] { display: none; }
     </div>
 
     <input type="file" id="fileInput" accept=".zip,.html,.htm">
+    <input type="file" id="workerFileInput" accept=".zip,.js">
+
+    <!-- PWA drop zone -->
+    <div class="deploy-section-label">PWA → GitHub Pages</div>
     <div class="drop-zone" id="dropZone">
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style="margin:0 auto 12px;display:block;opacity:0.4">
         <path d="M12 3v13M7 8l5-5 5 5M5 21h14" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2057,6 +2071,27 @@ input[type="file"] { display: none; }
       </svg>
       <span class="file-pill-name" id="filePillName">—</span>
       <button class="file-pill-clear" id="filePillClear">✕</button>
+    </div>
+
+    <!-- Worker drop zone — only shown when CF enabled -->
+    <div id="workerDropSection" style="display:none">
+      <div class="deploy-section-label" style="margin-top:12px">Worker → Cloudflare</div>
+      <div class="drop-zone" id="workerDropZone">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style="margin:0 auto 12px;display:block;opacity:0.4">
+          <path d="M13 10V3L4 14h7v7l9-11h-7z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="drop-title">Select worker.zip or .js</div>
+        <div class="drop-sub">Tap to browse · from Files app</div>
+      </div>
+
+      <div class="file-pill" id="workerFilePill">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;opacity:0.5">
+          <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M13 2v7h7" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+        <span class="file-pill-name" id="workerFilePillName">—</span>
+        <button class="file-pill-clear" id="workerFilePillClear">✕</button>
+      </div>
     </div>
 
     <div class="progress-wrap" id="progressWrap">
@@ -2404,6 +2439,7 @@ let token = rememberToken
 let globalUsername = store.get('push_username') || sessionStorage.getItem('push_username_session') || '';
 let currentAppId = null;
 let selectedFile = null;
+let workerFile = null;
 let editingAppId = null;
 let selectedEmoji = '📱';
 const EMOJIS = [
@@ -3346,6 +3382,12 @@ function openDeploy(id) {
   document.getElementById('liveUrlBar').textContent = liveUrl;
   document.getElementById('liveUrlBar').href = liveUrl;
 
+  // Show/hide worker drop zone
+  document.getElementById('workerDropSection').style.display = app.cfEnabled ? 'block' : 'none';
+  workerFile = null;
+  document.getElementById('workerFilePill').classList.remove('visible');
+  document.getElementById('workerDropZone').classList.remove('has-file');
+
   // Share button
   document.getElementById('shareBtn').onclick = async () => {
     if (navigator.share) {
@@ -3451,6 +3493,32 @@ document.getElementById('filePillClear').addEventListener('click', () => {
   document.getElementById('filePill').classList.remove('visible');
   document.getElementById('dropZone').classList.remove('has-file');
   document.getElementById('deployBtn').disabled = true;
+});
+
+// ── Worker File Handlers ──
+document.getElementById('workerDropZone').addEventListener('click', () => {
+  document.getElementById('workerFileInput').click();
+});
+
+document.getElementById('workerFileInput').addEventListener('change', (e) => {
+  if (e.target.files[0]) handleWorkerFile(e.target.files[0]);
+});
+
+function handleWorkerFile(file) {
+  const isZip = file.name.endsWith('.zip');
+  const isJs = file.name.endsWith('.js') || file.name.endsWith('.mjs');
+  if (!isZip && !isJs) { showToast('Please select a ZIP or .js worker file'); return; }
+  workerFile = file;
+  document.getElementById('workerFilePillName').textContent = file.name;
+  document.getElementById('workerFilePill').classList.add('visible');
+  document.getElementById('workerDropZone').classList.add('has-file');
+}
+
+document.getElementById('workerFilePillClear').addEventListener('click', () => {
+  workerFile = null;
+  document.getElementById('workerFileInput').value = '';
+  document.getElementById('workerFilePill').classList.remove('visible');
+  document.getElementById('workerDropZone').classList.remove('has-file');
 });
 
 // ── App Icon Fetch ──
@@ -3819,35 +3887,9 @@ async function deploy() {
     // Step 3: Push files
     setStep(3, 'active');
 
-    // If CF enabled, inject worker files into the push
-    let allFiles = [...files];
-    if (app.cfEnabled) {
-      const workerFile =
-        files.find(f => f.path === 'worker.js') ||
-        files.find(f => f.path === 'worker.mjs') ||
-        files.find(f => f.path.endsWith('/worker.js')) ||
-        files.find(f => f.path.endsWith('/worker.mjs')) ||
-        files.find(f => f.path.toLowerCase().includes('worker') && f.path.endsWith('.js'));
-
-      if (workerFile) {
-        const workerContent = atob(workerFile.content);
-        const cfFiles = await deployWorkerViaGitHub(app, workerContent, files, headers, branch);
-
-        // Remove original worker file from its subfolder — it will be added at root by cfFiles
-        allFiles = allFiles.filter(f => f.path !== workerFile.path);
-
-        // Add CF files at root (worker.js, wrangler.toml, .github/workflows/deploy-worker.yml)
-        for (const cf of cfFiles) {
-          if (!allFiles.find(f => f.path === cf.path)) {
-            allFiles.push(cf);
-          }
-        }
-      }
-    }
-
     // Create blobs for each file
     const treeItems = [];
-    for (const file of allFiles) {
+    for (const file of files) {
       if (!file.path) continue;
       const blobRes = await fetch(`https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/blobs`, {
         method: 'POST',
@@ -3855,6 +3897,7 @@ async function deploy() {
         body: JSON.stringify({ content: file.content, encoding: 'base64' })
       });
       const blobData = await blobRes.json();
+      if (!blobData.sha) throw new Error(`Failed to upload ${file.path}: ${blobData.message || 'unknown'}`);
       treeItems.push({ path: file.path, mode: '100644', type: 'blob', sha: blobData.sha });
     }
 
@@ -3865,6 +3908,7 @@ async function deploy() {
       body: JSON.stringify({ base_tree: baseTreeSha, tree: treeItems })
     });
     const treeData = await treeRes.json();
+    if (!treeData.sha) throw new Error(treeData.message || 'Tree creation failed');
 
     // Create commit
     const newCommitRes = await fetch(`https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/commits`, {
@@ -3877,6 +3921,7 @@ async function deploy() {
       })
     });
     const newCommitData = await newCommitRes.json();
+    if (!newCommitData.sha) throw new Error(newCommitData.message || 'Commit creation failed');
 
     // Update ref
     await fetch(`https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/refs/heads/${branch}`, {
@@ -3887,18 +3932,82 @@ async function deploy() {
 
     setStep(3, 'done');
 
-    // Show CF workflow step if enabled and worker found
-    if (app.cfEnabled) {
-      const workerFound = files.find(f =>
-        f.path === 'worker.js' || f.path === 'worker.mjs' ||
-        f.path.endsWith('/worker.js') ||
-        f.path.toLowerCase().includes('worker') && f.path.endsWith('.js')
-      );
-      if (workerFound) {
-        document.getElementById('ps4').style.display = 'flex';
-        document.getElementById('ps5num').textContent = '5';
+    // Deploy worker to Cloudflare via GitHub Actions if enabled and worker file selected
+    if (app.cfEnabled && workerFile) {
+      document.getElementById('ps4').style.display = 'flex';
+      document.getElementById('ps5num').textContent = '5';
+      setStep(4, 'active');
+
+      try {
+        // Read worker file content
+        let workerContent;
+        if (workerFile.name.endsWith('.zip')) {
+          // Extract JS from ZIP
+          const zip = await JSZip.loadAsync(workerFile);
+          const jsFile = Object.values(zip.files).find(f => !f.dir && f.name.endsWith('.js'));
+          if (!jsFile) throw new Error('No .js file found in worker ZIP');
+          workerContent = await jsFile.async('string');
+        } else {
+          workerContent = await workerFile.text();
+        }
+
+        // Commit worker.js + wrangler.toml + workflow to GitHub
+        const cfFiles = await deployWorkerViaGitHub(app, workerContent, [], headers, branch);
+
+        // Get latest ref for worker commit
+        const latestRefRes = await fetch(
+          `https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/ref/heads/${branch}`,
+          { headers }
+        );
+        const latestRefData = await latestRefRes.json();
+        const latestWorkerSha = latestRefData.object.sha;
+
+        // Get base tree
+        const latestWorkerCommitRes = await fetch(
+          `https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/commits/${latestWorkerSha}`,
+          { headers }
+        );
+        const latestWorkerCommitData = await latestWorkerCommitRes.json();
+        const baseWorkerTreeSha = latestWorkerCommitData.tree.sha;
+
+        // Create blobs for CF files
+        const cfTreeItems = [];
+        for (const cf of cfFiles) {
+          const blobRes = await fetch(
+            `https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/blobs`,
+            { method: 'POST', headers, body: JSON.stringify({ content: cf.content, encoding: 'base64' }) }
+          );
+          const blobData = await blobRes.json();
+          if (!blobData.sha) throw new Error(`Failed to upload ${cf.path}`);
+          cfTreeItems.push({ path: cf.path, mode: '100644', type: 'blob', sha: blobData.sha });
+        }
+
+        // Create tree, commit, update ref
+        const cfTreeRes = await fetch(
+          `https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/trees`,
+          { method: 'POST', headers, body: JSON.stringify({ base_tree: baseWorkerTreeSha, tree: cfTreeItems }) }
+        );
+        const cfTreeData = await cfTreeRes.json();
+        if (!cfTreeData.sha) throw new Error(cfTreeData.message || 'Worker tree failed');
+
+        const cfCommitRes = await fetch(
+          `https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/commits`,
+          { method: 'POST', headers, body: JSON.stringify({ message: 'Deploy worker via Push', tree: cfTreeData.sha, parents: [latestWorkerSha] }) }
+        );
+        const cfCommitData = await cfCommitRes.json();
+        if (!cfCommitData.sha) throw new Error(cfCommitData.message || 'Worker commit failed');
+
+        await fetch(
+          `https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/refs/heads/${branch}`,
+          { method: 'PATCH', headers, body: JSON.stringify({ sha: cfCommitData.sha, force: false }) }
+        );
+
         setStep(4, 'done');
-        showToast('GitHub Action triggered — worker deploying to CF');
+        showToast('Worker committed — GitHub Action deploying to CF');
+
+      } catch (err) {
+        setStep(4, 'err');
+        showToast('Worker deploy failed: ' + err.message);
       }
     }
 

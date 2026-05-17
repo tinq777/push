@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.counter.dev https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://api.github.com; script-src 'self' 'unsafe-inline' https://cdn.counter.dev https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://api.github.com https://cdn.counter.dev;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.counter.dev https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://api.github.com; script-src 'self' 'unsafe-inline' https://cdn.counter.dev https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src https://api.github.com https://cdn.counter.dev https://api.cloudflare.com;">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -2005,6 +2005,15 @@ input[type="file"] { display: none; }
       </button>
     </div>
 
+    <!-- CF Worker URL row — shown when CF enabled -->
+    <div class="live-url-bar" id="cfUrlRow" style="display:none;margin-top:-16px;border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;opacity:0.5">
+        <path d="M13 10V3L4 14h7v7l9-11h-7z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <a class="live-url-text" id="cfWorkerUrl" href="#" target="_blank">—</a>
+      <span class="stat-label" style="flex-shrink:0">worker</span>
+    </div>
+
     <!-- Traffic stats -->
     <div class="stats-row" id="statsRow">
       <div class="stat-item" style="flex-direction:column;align-items:flex-start;gap:2px">
@@ -2265,6 +2274,37 @@ input[type="file"] { display: none; }
     <div class="field">
       <label>Branch</label>
       <input type="text" id="appBranchInput" placeholder="main" maxlength="50">
+    </div>
+
+    <!-- Cloudflare Workers toggle -->
+    <div class="toggle-row" id="cfToggleRow" style="margin-bottom:8px">
+      <div class="toggle-info">
+        <div class="toggle-label">Deploy to Cloudflare Workers</div>
+        <div class="toggle-sub">Also deploy a worker file from your ZIP</div>
+      </div>
+      <div class="toggle" id="cfToggle">
+        <div class="toggle-knob"></div>
+      </div>
+    </div>
+
+    <!-- Cloudflare fields — shown when toggle on -->
+    <div id="cfSection" style="display:none">
+      <div class="field">
+        <label>Cloudflare API Token</label>
+        <input type="password" id="cfTokenInput" placeholder="Paste your CF token" maxlength="200">
+      </div>
+      <div class="field">
+        <label>Account ID</label>
+        <input type="text" id="cfAccountInput" placeholder="Your Cloudflare Account ID" maxlength="50" autocapitalize="none">
+      </div>
+      <div class="field">
+        <label>Worker Name</label>
+        <input type="text" id="cfWorkerInput" placeholder="my-worker" maxlength="100" autocapitalize="none">
+      </div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px">
+        Your ZIP should contain <strong>index.html</strong> (→ GitHub Pages) and a <strong>.js</strong> file (→ Cloudflare Workers). Push deploys both automatically.
+        <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" style="color:#ffffff;opacity:0.6;text-decoration:none;border-bottom:1px solid #333">Get CF token ↗</a>
+      </p>
     </div>
 
     <!-- Skip security scan toggle -->
@@ -3180,6 +3220,34 @@ function processScanResult(html, app) {
   };
 }
 
+// ── Cloudflare Workers Deploy ──
+async function deployToCloudflareWorkers(app, workerContent) {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${app.cfAccount}/workers/scripts/${app.cfWorker}`;
+
+  const formData = new FormData();
+  const blob = new Blob([workerContent], { type: 'application/javascript' });
+  formData.append('script', blob, 'worker.js');
+  formData.append('metadata', new Blob([JSON.stringify({
+    body_part: 'script',
+    compatibility_date: new Date().toISOString().split('T')[0]
+  })], { type: 'application/json' }));
+
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${app.cfToken}`
+    },
+    body: formData
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.errors?.[0]?.message || `Cloudflare error ${res.status}`);
+  }
+
+  return await res.json();
+}
+
 // ── Notifications ──
 async function requestNotificationPermission() {
   if (!('Notification' in window)) return false;
@@ -3269,6 +3337,16 @@ function openDeploy(id) {
   const liveUrl = `https://${sanitise(app.username)}.github.io/${sanitise(app.repo)}/`;
   document.getElementById('liveUrlBar').textContent = liveUrl;
   document.getElementById('liveUrlBar').href = liveUrl;
+
+  // Show CF worker URL if enabled
+  const cfUrlRow = document.getElementById('cfUrlRow');
+  if (app.cfEnabled && app.cfWorker) {
+    document.getElementById('cfWorkerUrl').textContent = `${app.cfWorker}.workers.dev`;
+    document.getElementById('cfWorkerUrl').href = `https://${app.cfWorker}.workers.dev`;
+    cfUrlRow.style.display = 'flex';
+  } else {
+    cfUrlRow.style.display = 'none';
+  }
 
   // Share button
   document.getElementById('shareBtn').onclick = async () => {
@@ -3806,6 +3884,29 @@ async function deploy() {
     delete iconCache[currentAppId];
     localStorage.removeItem(`push_icon_${currentAppId}`);
 
+    // Deploy to Cloudflare Workers if enabled
+    if (app.cfEnabled) {
+      // Find worker JS file in ZIP
+      const workerFile = files.find(f =>
+        f.path.endsWith('.js') &&
+        !f.path.includes('node_modules') &&
+        f.path !== 'index.js' // skip if named index.js which might be the app
+      );
+
+      if (workerFile) {
+        showToast('Deploying to Cloudflare…');
+        try {
+          const workerContent = atob(workerFile.content);
+          await deployToCloudflareWorkers(app, workerContent);
+          showToast(`Worker deployed ✓ — ${app.cfWorker}.workers.dev`);
+        } catch (err) {
+          showToast('CF deploy failed: ' + err.message);
+        }
+      } else {
+        showToast('No .js worker file found in ZIP');
+      }
+    }
+
     // Start polling for GitHub Pages rebuild notification
     const historyKey = `push_history_${currentAppId}`;
     const existingHistory = store.get(historyKey) || [];
@@ -3966,6 +4067,13 @@ function renderEmojiPicker() {
 // ── Toggle ──
 let createRepoEnabled = false;
 let skipScanEnabled = false;
+let cfEnabled = false;
+
+document.getElementById('cfToggleRow').addEventListener('click', () => {
+  cfEnabled = !cfEnabled;
+  document.getElementById('cfToggle').classList.toggle('on', cfEnabled);
+  document.getElementById('cfSection').style.display = cfEnabled ? 'block' : 'none';
+});
 
 document.getElementById('skipScanToggleRow').addEventListener('click', () => {
   skipScanEnabled = !skipScanEnabled;
@@ -4036,8 +4144,14 @@ async function createGitHubRepo(username, repoName, branch) {
 function openAddSheet() {
   editingAppId = null;
   createRepoEnabled = false;
+  cfEnabled = false;
   skipScanEnabled = false;
   selectedEmoji = '📱';
+  document.getElementById('cfToggle').classList.remove('on');
+  document.getElementById('cfSection').style.display = 'none';
+  document.getElementById('cfTokenInput').value = '';
+  document.getElementById('cfAccountInput').value = '';
+  document.getElementById('cfWorkerInput').value = '';
   document.getElementById('appSheetTitle').textContent = 'New App';
   document.getElementById('appNameInput').value = '';
   document.getElementById('appRepoInput').value = '';
@@ -4062,6 +4176,12 @@ function openEditSheet(id) {
   editingAppId = id;
   createRepoEnabled = false;
   skipScanEnabled = app.skipScan || false;
+  cfEnabled = app.cfEnabled || false;
+  document.getElementById('cfToggle').classList.toggle('on', cfEnabled);
+  document.getElementById('cfSection').style.display = cfEnabled ? 'block' : 'none';
+  document.getElementById('cfTokenInput').value = app.cfToken || '';
+  document.getElementById('cfAccountInput').value = app.cfAccount || '';
+  document.getElementById('cfWorkerInput').value = app.cfWorker || '';
   selectedEmoji = app.emoji || '📱';
   document.getElementById('appSheetTitle').textContent = 'Edit App';
   document.getElementById('appNameInput').value = app.name;
@@ -4089,6 +4209,9 @@ document.getElementById('appSave').addEventListener('click', async () => {
   const name = document.getElementById('appNameInput').value.trim();
   const username = globalUsername;
   const branch = document.getElementById('appBranchInput').value.trim() || 'main';
+  const cfToken = document.getElementById('cfTokenInput').value.trim();
+  const cfAccount = document.getElementById('cfAccountInput').value.trim();
+  const cfWorker = document.getElementById('cfWorkerInput').value.trim();
   let repo;
 
   if (editingAppId) {
@@ -4103,7 +4226,12 @@ document.getElementById('appSave').addEventListener('click', async () => {
     if (!username) { showToast('Add your GitHub username in settings first'); return; }
     showToast('Fill in all fields'); return;
   }
+  if (cfEnabled && (!cfToken || !cfAccount || !cfWorker)) {
+    showToast('Fill in all Cloudflare fields'); return;
+  }
   if (!token && createRepoEnabled) { showToast('Connect a platform first'); return; }
+
+  const cfFields = cfEnabled ? { cfEnabled: true, cfToken, cfAccount, cfWorker } : { cfEnabled: false };
 
   const saveBtn = document.getElementById('appSave');
   saveBtn.disabled = true;
@@ -4123,12 +4251,12 @@ document.getElementById('appSave').addEventListener('click', async () => {
 
   if (editingAppId) {
     apps = apps.map(a => a.id === editingAppId
-      ? { ...a, name, username, repo, branch, emoji: selectedEmoji, skipScan: skipScanEnabled }
+      ? { ...a, name, username, repo, branch, emoji: selectedEmoji, skipScan: skipScanEnabled, ...cfFields }
       : a
     );
     showToast('App updated');
   } else {
-    apps.push({ id: Date.now().toString(), name, username, repo, branch, emoji: selectedEmoji, skipScan: skipScanEnabled });
+    apps.push({ id: Date.now().toString(), name, username, repo, branch, emoji: selectedEmoji, skipScan: skipScanEnabled, ...cfFields });
     showToast('App added');
   }
 

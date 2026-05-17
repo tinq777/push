@@ -2294,10 +2294,6 @@ input[type="file"] { display: none; }
     <!-- Cloudflare fields — shown when toggle on -->
     <div id="cfSection" style="display:none">
       <div class="field">
-        <label>Cloudflare API Token</label>
-        <input type="password" id="cfTokenInput" placeholder="Paste your CF token" maxlength="200">
-      </div>
-      <div class="field">
         <label>Account ID</label>
         <input type="text" id="cfAccountInput" placeholder="Your Cloudflare Account ID" maxlength="50" autocapitalize="none">
       </div>
@@ -2306,7 +2302,8 @@ input[type="file"] { display: none; }
         <input type="text" id="cfWorkerInput" placeholder="my-worker" maxlength="100" autocapitalize="none">
       </div>
       <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px">
-        Your ZIP should contain <strong>index.html</strong> (→ GitHub Pages) and <strong>worker.js</strong> (→ Cloudflare Workers). Push deploys both automatically. Ask Claude to name your worker file <strong>worker.js</strong>.
+        Push will commit <strong>worker.js</strong> + a GitHub Actions workflow to your repo. The workflow deploys to Cloudflare automatically on every push.<br><br>
+        Add <strong>CF_API_TOKEN</strong> and <strong>CF_ACCOUNT_ID</strong> to your repo's GitHub Secrets first.
         <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" style="color:#ffffff;opacity:0.6;text-decoration:none;border-bottom:1px solid #333">Get CF token ↗</a>
       </p>
     </div>
@@ -3224,32 +3221,53 @@ function processScanResult(html, app) {
   };
 }
 
-// ── Cloudflare Workers Deploy ──
-async function deployToCloudflareWorkers(app, workerContent) {
-  const url = `https://api.cloudflare.com/client/v4/accounts/${app.cfAccount}/workers/scripts/${app.cfWorker}`;
+// ── Cloudflare Workers Deploy via GitHub Actions ──
+function generateWranglerToml(app) {
+  return `name = "${app.cfWorker}"
+main = "worker.js"
+compatibility_date = "${new Date().toISOString().split('T')[0]}"
+account_id = "${app.cfAccount}"
+`;
+}
 
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${app.cfToken}`,
-      'Content-Type': 'application/javascript'
-    },
-    body: workerContent
-  });
+function generateGithubWorkflow() {
+  return `name: Deploy Cloudflare Worker
 
-  const json = await res.json().catch(() => null);
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'worker.js'
+      - 'wrangler.toml'
 
-  if (!res.ok) {
-    const errors = json?.errors?.map(e => e.message).join(', ') || json?.error || `HTTP ${res.status}`;
-    throw new Error(`${res.status}: ${errors}`);
-  }
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy Worker
+    steps:
+      - uses: actions/checkout@v3
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: \${{ secrets.CF_API_TOKEN }}
+          accountId: \${{ secrets.CF_ACCOUNT_ID }}
+`;
+}
 
-  if (json && !json.success) {
-    const errors = json.errors?.map(e => e.message).join(', ') || 'Deploy failed';
-    throw new Error(errors);
-  }
+async function deployWorkerViaGitHub(app, workerContent, files, headers, branch) {
+  const workerB64 = btoa(unescape(encodeURIComponent(workerContent)));
+  const wranglerB64 = btoa(unescape(encodeURIComponent(generateWranglerToml(app))));
+  const workflowB64 = btoa(unescape(encodeURIComponent(generateGithubWorkflow())));
 
-  return json;
+  // Add worker.js, wrangler.toml and workflow to files being pushed
+  const cfFiles = [
+    { path: 'worker.js', content: workerB64 },
+    { path: 'wrangler.toml', content: wranglerB64 },
+    { path: '.github/workflows/deploy-worker.yml', content: workflowB64 }
+  ];
+
+  return cfFiles;
 }
 
 // ── Notifications ──
@@ -3825,9 +3843,30 @@ async function deploy() {
     // Step 3: Push files
     setStep(3, 'active');
 
+    // If CF enabled, inject worker files into the push
+    let allFiles = [...files];
+    if (app.cfEnabled) {
+      const workerFile =
+        files.find(f => f.path === 'worker.js') ||
+        files.find(f => f.path === 'worker.mjs') ||
+        files.find(f => f.path.endsWith('/worker.js')) ||
+        files.find(f => f.path.toLowerCase().includes('worker') && f.path.endsWith('.js'));
+
+      if (workerFile) {
+        const workerContent = atob(workerFile.content);
+        const cfFiles = await deployWorkerViaGitHub(app, workerContent, files, headers, branch);
+        // Add CF files to the push (avoid duplicates)
+        for (const cf of cfFiles) {
+          if (!allFiles.find(f => f.path === cf.path)) {
+            allFiles.push(cf);
+          }
+        }
+      }
+    }
+
     // Create blobs for each file
     const treeItems = [];
-    for (const file of files) {
+    for (const file of allFiles) {
       if (!file.path) continue;
       const blobRes = await fetch(`https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/blobs`, {
         method: 'POST',
@@ -3866,6 +3905,22 @@ async function deploy() {
     });
 
     setStep(3, 'done');
+
+    // Show CF workflow step if enabled and worker found
+    if (app.cfEnabled) {
+      const workerFound = files.find(f =>
+        f.path === 'worker.js' || f.path === 'worker.mjs' ||
+        f.path.endsWith('/worker.js') ||
+        f.path.toLowerCase().includes('worker') && f.path.endsWith('.js')
+      );
+      if (workerFound) {
+        document.getElementById('ps4').style.display = 'flex';
+        document.getElementById('ps5num').textContent = '5';
+        setStep(4, 'done');
+        showToast('GitHub Action triggered — worker deploying to CF');
+      }
+    }
+
     setStep(5, 'done');
 
     // Save to history
@@ -3893,39 +3948,6 @@ async function deploy() {
     // Invalidate icon cache for this app so new icon is fetched
     delete iconCache[currentAppId];
     localStorage.removeItem(`push_icon_${currentAppId}`);
-
-    // Deploy to Cloudflare Workers if enabled
-    if (app.cfEnabled) {
-      const workerFile =
-        files.find(f => f.path === 'worker.js') ||
-        files.find(f => f.path === 'worker.mjs') ||
-        files.find(f => f.path.endsWith('/worker.js')) ||
-        files.find(f => f.path.endsWith('/worker.mjs')) ||
-        files.find(f => f.path.toLowerCase().includes('worker') && f.path.endsWith('.js'));
-
-      if (workerFile) {
-        // Show CF step
-        document.getElementById('ps4').style.display = 'flex';
-        document.getElementById('ps5num').textContent = '5';
-        setStep(4, 'active');
-        try {
-          const workerContent = atob(workerFile.content);
-          await deployToCloudflareWorkers(app, workerContent);
-          setStep(4, 'done');
-        } catch (err) {
-          setStep(4, 'err');
-          // Show full error details
-          const detail = err.message || 'Unknown error';
-          showToast('CF: ' + detail.slice(0, 60));
-          console.error('Cloudflare deploy error:', detail);
-          // Also show in result area
-          document.getElementById('resultWrap').classList.add('visible');
-          document.getElementById('resultUrl').textContent = 'CF Error: ' + detail;
-        }
-      } else {
-        showToast('No worker.js found in ZIP — skipping CF deploy');
-      }
-    }
 
     // Start polling for GitHub Pages rebuild notification
     const historyKey = `push_history_${currentAppId}`;
@@ -4169,7 +4191,7 @@ function openAddSheet() {
   selectedEmoji = '📱';
   document.getElementById('cfToggle').classList.remove('on');
   document.getElementById('cfSection').style.display = 'none';
-  document.getElementById('cfTokenInput').value = '';
+  
   document.getElementById('cfAccountInput').value = '';
   document.getElementById('cfWorkerInput').value = '';
   document.getElementById('appSheetTitle').textContent = 'New App';
@@ -4199,7 +4221,7 @@ function openEditSheet(id) {
   cfEnabled = app.cfEnabled || false;
   document.getElementById('cfToggle').classList.toggle('on', cfEnabled);
   document.getElementById('cfSection').style.display = cfEnabled ? 'block' : 'none';
-  document.getElementById('cfTokenInput').value = app.cfToken || '';
+  
   document.getElementById('cfAccountInput').value = app.cfAccount || '';
   document.getElementById('cfWorkerInput').value = app.cfWorker || '';
   selectedEmoji = app.emoji || '📱';
@@ -4229,7 +4251,6 @@ document.getElementById('appSave').addEventListener('click', async () => {
   const name = document.getElementById('appNameInput').value.trim();
   const username = globalUsername;
   const branch = document.getElementById('appBranchInput').value.trim() || 'main';
-  const cfToken = document.getElementById('cfTokenInput').value.trim();
   const cfAccount = document.getElementById('cfAccountInput').value.trim();
   const cfWorker = document.getElementById('cfWorkerInput').value.trim();
   let repo;
@@ -4246,12 +4267,12 @@ document.getElementById('appSave').addEventListener('click', async () => {
     if (!username) { showToast('Add your GitHub username in settings first'); return; }
     showToast('Fill in all fields'); return;
   }
-  if (cfEnabled && (!cfToken || !cfAccount || !cfWorker)) {
-    showToast('Fill in all Cloudflare fields'); return;
+  if (cfEnabled && (!cfAccount || !cfWorker)) {
+    showToast('Fill in Cloudflare Account ID and Worker Name'); return;
   }
   if (!token && createRepoEnabled) { showToast('Connect a platform first'); return; }
 
-  const cfFields = cfEnabled ? { cfEnabled: true, cfToken, cfAccount, cfWorker } : { cfEnabled: false };
+  const cfFields = cfEnabled ? { cfEnabled: true, cfAccount, cfWorker } : { cfEnabled: false };
 
   const saveBtn = document.getElementById('appSave');
   saveBtn.disabled = true;

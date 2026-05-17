@@ -2081,8 +2081,12 @@ input[type="file"] { display: none; }
         <div class="step-indicator">3</div>
         <span class="step-label">Pushing files</span>
       </div>
-      <div class="progress-step" id="ps4">
+      <div class="progress-step" id="ps4" style="display:none">
         <div class="step-indicator">4</div>
+        <span class="step-label">Deploying worker</span>
+      </div>
+      <div class="progress-step" id="ps5">
+        <div class="step-indicator" id="ps5num">4</div>
         <span class="step-label">Complete</span>
       </div>
     </div>
@@ -3224,25 +3228,19 @@ function processScanResult(html, app) {
 async function deployToCloudflareWorkers(app, workerContent) {
   const url = `https://api.cloudflare.com/client/v4/accounts/${app.cfAccount}/workers/scripts/${app.cfWorker}`;
 
-  const formData = new FormData();
-  const blob = new Blob([workerContent], { type: 'application/javascript' });
-  formData.append('script', blob, 'worker.js');
-  formData.append('metadata', new Blob([JSON.stringify({
-    body_part: 'script',
-    compatibility_date: new Date().toISOString().split('T')[0]
-  })], { type: 'application/json' }));
-
   const res = await fetch(url, {
     method: 'PUT',
     headers: {
-      'Authorization': `Bearer ${app.cfToken}`
+      'Authorization': `Bearer ${app.cfToken}`,
+      'Content-Type': 'application/javascript'
     },
-    body: formData
+    body: workerContent
   });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.errors?.[0]?.message || `Cloudflare error ${res.status}`);
+    const msg = err.errors?.[0]?.message || err.error || `HTTP ${res.status}`;
+    throw new Error(msg);
   }
 
   return await res.json();
@@ -3387,17 +3385,23 @@ function openDeploy(id) {
 
 // ── Steps ──
 function resetSteps() {
-  for (let i = 1; i <= 4; i++) {
-    const el = document.getElementById('ps' + i);
+  ['ps1','ps2','ps3','ps4','ps5'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
     el.className = 'progress-step';
-    el.querySelector('.step-indicator').textContent = i;
-  }
+    const ind = el.querySelector('.step-indicator');
+    if (ind) ind.textContent = i + 1;
+  });
+  document.getElementById('ps4').style.display = 'none';
+  document.getElementById('ps5num').textContent = '4';
 }
 
 function setStep(n, state) {
   const el = document.getElementById('ps' + n);
+  if (!el) return;
   el.className = 'progress-step ' + state;
   const ind = el.querySelector('.step-indicator');
+  if (!ind) return;
   if (state === 'done') ind.textContent = '✓';
   else if (state === 'err') ind.textContent = '✕';
   else ind.textContent = n;
@@ -3856,7 +3860,7 @@ async function deploy() {
     });
 
     setStep(3, 'done');
-    setStep(4, 'done');
+    setStep(5, 'done');
 
     // Save to history
     const commitMsg = `Deployed via Push — ${new Date().toLocaleString()}`;
@@ -3886,8 +3890,7 @@ async function deploy() {
 
     // Deploy to Cloudflare Workers if enabled
     if (app.cfEnabled) {
-      // Look for worker file — priority order
-      const workerFile = 
+      const workerFile =
         files.find(f => f.path === 'worker.js') ||
         files.find(f => f.path === 'worker.mjs') ||
         files.find(f => f.path.endsWith('/worker.js')) ||
@@ -3895,12 +3898,16 @@ async function deploy() {
         files.find(f => f.path.toLowerCase().includes('worker') && f.path.endsWith('.js'));
 
       if (workerFile) {
-        showToast('Deploying to Cloudflare…');
+        // Show CF step
+        document.getElementById('ps4').style.display = 'flex';
+        document.getElementById('ps5num').textContent = '5';
+        setStep(4, 'active');
         try {
           const workerContent = atob(workerFile.content);
           await deployToCloudflareWorkers(app, workerContent);
-          showToast(`Worker deployed ✓ — ${app.cfWorker}.workers.dev`);
+          setStep(4, 'done');
         } catch (err) {
+          setStep(4, 'err');
           showToast('CF deploy failed: ' + err.message);
         }
       } else {
@@ -3917,9 +3924,9 @@ async function deploy() {
     }
 
   } catch (err) {
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 5; i++) {
       const el = document.getElementById('ps' + i);
-      if (el.classList.contains('active')) { setStep(i, 'err'); break; }
+      if (el && el.classList.contains('active')) { setStep(i, 'err'); break; }
     }
     showToast('Error: ' + err.message);
     document.getElementById('deployBtn').disabled = false;

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.counter.dev https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://api.github.com; script-src 'self' 'unsafe-inline' https://cdn.counter.dev https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src https://api.github.com https://cdn.counter.dev https://api.cloudflare.com;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.counter.dev https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://api.github.com; script-src 'self' 'unsafe-inline' https://cdn.counter.dev https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src https://api.github.com https://cdn.counter.dev;">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -2005,15 +2005,6 @@ input[type="file"] { display: none; }
       </button>
     </div>
 
-    <!-- CF Worker URL row — shown when CF enabled -->
-    <div class="live-url-bar" id="cfUrlRow" style="display:none;margin-top:-16px;border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;opacity:0.5">
-        <path d="M13 10V3L4 14h7v7l9-11h-7z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <a class="live-url-text" id="cfWorkerUrl" href="#" target="_blank">—</a>
-      <span class="stat-label" style="flex-shrink:0">worker</span>
-    </div>
-
     <!-- Traffic stats -->
     <div class="stats-row" id="statsRow">
       <div class="stat-item" style="flex-direction:column;align-items:flex-start;gap:2px">
@@ -2294,15 +2285,11 @@ input[type="file"] { display: none; }
     <!-- Cloudflare fields — shown when toggle on -->
     <div id="cfSection" style="display:none">
       <div class="field">
-        <label>Account ID</label>
-        <input type="text" id="cfAccountInput" placeholder="Your Cloudflare Account ID" maxlength="50" autocapitalize="none">
-      </div>
-      <div class="field">
         <label>Worker Name</label>
         <input type="text" id="cfWorkerInput" placeholder="my-worker" maxlength="100" autocapitalize="none">
       </div>
       <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px">
-        Push will commit <strong>worker.js</strong> + a GitHub Actions workflow to your repo. The workflow deploys to Cloudflare automatically on every push.<br><br>
+        Push commits <strong>worker.js</strong> + a GitHub Actions workflow to your repo. The workflow deploys to Cloudflare automatically on every push.<br><br>
         Add <strong>CF_API_TOKEN</strong> and <strong>CF_ACCOUNT_ID</strong> to your repo's GitHub Secrets first.
         <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" style="color:#ffffff;opacity:0.6;text-decoration:none;border-bottom:1px solid #333">Get CF token ↗</a>
       </p>
@@ -3226,7 +3213,6 @@ function generateWranglerToml(app) {
   return `name = "${app.cfWorker}"
 main = "worker.js"
 compatibility_date = "${new Date().toISOString().split('T')[0]}"
-account_id = "${app.cfAccount}"
 `;
 }
 
@@ -3359,16 +3345,6 @@ function openDeploy(id) {
   const liveUrl = `https://${sanitise(app.username)}.github.io/${sanitise(app.repo)}/`;
   document.getElementById('liveUrlBar').textContent = liveUrl;
   document.getElementById('liveUrlBar').href = liveUrl;
-
-  // Show CF worker URL if enabled
-  const cfUrlRow = document.getElementById('cfUrlRow');
-  if (app.cfEnabled && app.cfWorker) {
-    document.getElementById('cfWorkerUrl').textContent = `${app.cfWorker}.workers.dev`;
-    document.getElementById('cfWorkerUrl').href = `https://${app.cfWorker}.workers.dev`;
-    cfUrlRow.style.display = 'flex';
-  } else {
-    cfUrlRow.style.display = 'none';
-  }
 
   // Share button
   document.getElementById('shareBtn').onclick = async () => {
@@ -4197,7 +4173,6 @@ function openAddSheet() {
   document.getElementById('cfToggle').classList.remove('on');
   document.getElementById('cfSection').style.display = 'none';
   
-  document.getElementById('cfAccountInput').value = '';
   document.getElementById('cfWorkerInput').value = '';
   document.getElementById('appSheetTitle').textContent = 'New App';
   document.getElementById('appNameInput').value = '';
@@ -4227,7 +4202,6 @@ function openEditSheet(id) {
   document.getElementById('cfToggle').classList.toggle('on', cfEnabled);
   document.getElementById('cfSection').style.display = cfEnabled ? 'block' : 'none';
   
-  document.getElementById('cfAccountInput').value = app.cfAccount || '';
   document.getElementById('cfWorkerInput').value = app.cfWorker || '';
   selectedEmoji = app.emoji || '📱';
   document.getElementById('appSheetTitle').textContent = 'Edit App';
@@ -4256,7 +4230,6 @@ document.getElementById('appSave').addEventListener('click', async () => {
   const name = document.getElementById('appNameInput').value.trim();
   const username = globalUsername;
   const branch = document.getElementById('appBranchInput').value.trim() || 'main';
-  const cfAccount = document.getElementById('cfAccountInput').value.trim();
   const cfWorker = document.getElementById('cfWorkerInput').value.trim();
   let repo;
 
@@ -4272,12 +4245,12 @@ document.getElementById('appSave').addEventListener('click', async () => {
     if (!username) { showToast('Add your GitHub username in settings first'); return; }
     showToast('Fill in all fields'); return;
   }
-  if (cfEnabled && (!cfAccount || !cfWorker)) {
-    showToast('Fill in Cloudflare Account ID and Worker Name'); return;
+  if (cfEnabled && !cfWorker) {
+    showToast('Enter a Worker Name'); return;
   }
   if (!token && createRepoEnabled) { showToast('Connect a platform first'); return; }
 
-  const cfFields = cfEnabled ? { cfEnabled: true, cfAccount, cfWorker } : { cfEnabled: false };
+  const cfFields = cfEnabled ? { cfEnabled: true, cfWorker } : { cfEnabled: false };
 
   const saveBtn = document.getElementById('appSave');
   saveBtn.disabled = true;

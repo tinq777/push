@@ -3850,12 +3850,17 @@ async function deploy() {
         files.find(f => f.path === 'worker.js') ||
         files.find(f => f.path === 'worker.mjs') ||
         files.find(f => f.path.endsWith('/worker.js')) ||
+        files.find(f => f.path.endsWith('/worker.mjs')) ||
         files.find(f => f.path.toLowerCase().includes('worker') && f.path.endsWith('.js'));
 
       if (workerFile) {
         const workerContent = atob(workerFile.content);
         const cfFiles = await deployWorkerViaGitHub(app, workerContent, files, headers, branch);
-        // Add CF files to the push (avoid duplicates)
+
+        // Remove original worker file from its subfolder — it will be added at root by cfFiles
+        allFiles = allFiles.filter(f => f.path !== workerFile.path);
+
+        // Add CF files at root (worker.js, wrangler.toml, .github/workflows/deploy-worker.yml)
         for (const cf of cfFiles) {
           if (!allFiles.find(f => f.path === cf.path)) {
             allFiles.push(cf);

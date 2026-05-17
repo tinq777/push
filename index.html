@@ -3237,13 +3237,19 @@ async function deployToCloudflareWorkers(app, workerContent) {
     body: workerContent
   });
 
+  const json = await res.json().catch(() => null);
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    const msg = err.errors?.[0]?.message || err.error || `HTTP ${res.status}`;
-    throw new Error(msg);
+    const errors = json?.errors?.map(e => e.message).join(', ') || json?.error || `HTTP ${res.status}`;
+    throw new Error(`${res.status}: ${errors}`);
   }
 
-  return await res.json();
+  if (json && !json.success) {
+    const errors = json.errors?.map(e => e.message).join(', ') || 'Deploy failed';
+    throw new Error(errors);
+  }
+
+  return json;
 }
 
 // ── Notifications ──
@@ -3908,7 +3914,13 @@ async function deploy() {
           setStep(4, 'done');
         } catch (err) {
           setStep(4, 'err');
-          showToast('CF deploy failed: ' + err.message);
+          // Show full error details
+          const detail = err.message || 'Unknown error';
+          showToast('CF: ' + detail.slice(0, 60));
+          console.error('Cloudflare deploy error:', detail);
+          // Also show in result area
+          document.getElementById('resultWrap').classList.add('visible');
+          document.getElementById('resultUrl').textContent = 'CF Error: ' + detail;
         }
       } else {
         showToast('No worker.js found in ZIP — skipping CF deploy');

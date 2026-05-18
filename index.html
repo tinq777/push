@@ -2417,7 +2417,7 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
+  setTimeout(() => t.classList.remove('show'), 4000);
 }
 
 // ── Views ──
@@ -2846,6 +2846,12 @@ const SECURITY_RULES = [
   { level: 'info', title: 'console.log in production', pattern: /console\.log\s*\(/g, detail: 'Debug logs found — consider removing before deploy', confidence: 90 },
   { level: 'info', title: 'TODO or FIXME comment', pattern: /\/\/\s*(?:TODO|FIXME|HACK|XXX)/gi, detail: 'Unresolved code comment found', confidence: 95 },
   { level: 'info', title: 'Hardcoded localhost', pattern: /localhost:\d+/g, detail: 'Localhost URL found — may not work in production', confidence: 90 },
+
+  // Personal data
+  { level: 'warning', title: 'Email address in code', pattern: /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, detail: 'Email address found — may expose personal contact details', confidence: 80 },
+  { level: 'warning', title: 'Phone number in code', pattern: /(?:\+?\d{1,3}[\s\-.]?)?\(?\d{3}\)?[\s\-.]?\d{3}[\s\-.]?\d{4}/g, detail: 'Phone number found — may expose personal contact details', confidence: 70 },
+  { level: 'warning', title: 'Hardcoded name or address', pattern: /(?:fullName|full_name|firstName|first_name|lastName|last_name|streetAddress|street_address|homeAddress|home_address)\s*[:=]\s*["'][^"']{3,}["']/gi, detail: 'Personal name or address found hardcoded in code', confidence: 75 },
+  { level: 'info', title: 'IP address in code', pattern: /\b(?:192\.168|10\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b/g, detail: 'Private IP address found — may expose network details', confidence: 80 },
 ];
 
 function scanFiles(files) {
@@ -2892,6 +2898,21 @@ function scanFiles(files) {
         }
         if (!unsanitised.length) continue;
         matches = unsanitised;
+
+      } else if (rule.title === 'Email address in code') {
+        const ignoredDomains = ['example.com', 'test.com', 'placeholder.com', 'yourdomain.com', 'domain.com', 'email.com', 'google.com', 'github.com', 'githubusercontent.com'];
+        matches = (userCode.match(rule.pattern) || []).filter(m =>
+          !ignoredDomains.some(d => m.toLowerCase().endsWith(d)) &&
+          !m.includes('example') &&
+          !m.includes('placeholder') &&
+          !m.startsWith('test@') &&
+          !m.startsWith('user@')
+        );
+        if (!matches.length) continue;
+
+      } else if (rule.title === 'Phone number in code') {
+        matches = (userCode.match(rule.pattern) || []).filter(m => m.replace(/\D/g, '').length >= 10);
+        if (!matches.length) continue;
 
       } else if (rule.title === 'External script without SRI') {
         const trustedSrcs = ['cdnjs.cloudflare.com', 'cdn.counter.dev', 'fonts.googleapis.com', 'fonts.gstatic.com'];
@@ -3848,6 +3869,8 @@ async function deploy() {
       if (el && el.classList.contains('active')) { setStep(i, 'err'); break; }
     }
     showToast('Error: ' + err.message);
+    document.getElementById('resultUrl').textContent = '⚠ ' + err.message;
+    document.getElementById('resultWrap').classList.add('visible');
     document.getElementById('deployBtn').disabled = false;
   }
 }

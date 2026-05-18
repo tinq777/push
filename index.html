@@ -3432,8 +3432,7 @@ function openDeploy(id) {
   document.getElementById('liveUrlBar').href = liveUrl;
 
   // Update drop zone label based on CF setting
-  const app2 = apps.find(a => a.id === appId);
-  if (app2 && app2.cfEnabled) {
+  if (app.cfEnabled) {
     document.getElementById('dropTitle').textContent = 'Select PWA zip or Worker zip';
   } else {
     document.getElementById('dropTitle').textContent = 'Select ZIP or HTML file';

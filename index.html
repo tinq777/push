@@ -3933,6 +3933,7 @@ async function deploy() {
     setStep(3, 'done');
 
     // Deploy worker to Cloudflare via GitHub Actions if enabled and worker file selected
+    showToast(`CF: enabled=${app.cfEnabled} worker=${!!workerFile} name=${app.cfWorker}`);
     if (app.cfEnabled && workerFile) {
       document.getElementById('ps4').style.display = 'flex';
       document.getElementById('ps5num').textContent = '5';

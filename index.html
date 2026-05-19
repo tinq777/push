@@ -2160,7 +2160,7 @@ input[type="file"] { display: none; }
     </div>
 
     <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:8px;">
-      Use a <strong>fine-grained token</strong> for better security — limit access to Push repos only with Contents and Pages permissions. <a href="https://github.com/settings/tokens" target="_blank" style="color:#ffffff;opacity:0.6;text-decoration:none;border-bottom:1px solid #333">GitHub token settings ↗</a>
+      Use a <strong>fine-grained token</strong> for better security — limit access to Push repos only with Contents and Pages permissions. For apps using GitHub Actions (e.g. Cloudflare Workers), also enable the <strong>workflow</strong> scope. <a href="https://github.com/settings/tokens" target="_blank" style="color:#ffffff;opacity:0.6;text-decoration:none;border-bottom:1px solid #333">GitHub token settings ↗</a>
     </p>
     <p style="font-size:12px;color:#ff444488;line-height:1.5;margin-bottom:16px;">
       🔒 If you lose your device, revoke your token immediately at github.com/settings/tokens
@@ -3146,7 +3146,11 @@ async function scanLiveApp(app) {
 
     // Step 3: Find index.html blob SHA
     const indexFile = treeData.tree.find(f => f.path === 'index.html');
-    if (!indexFile) throw new Error('index.html not found in repo root');
+    if (!indexFile) {
+      btn.classList.remove('scanning');
+      showToast('No index.html found — skipping scan');
+      return;
+    }
 
     // Step 4: Fetch the blob content
     const blobRes = await fetch(

@@ -79,9 +79,10 @@ Your app is live on GitHub Pages at `yourusername.github.io/your-app`
 2. Personal access tokens → **Fine-grained tokens** (more secure)
 3. Set repository access to your Push-related repos only
 4. Enable **Contents** (Read & Write) and **Pages** (Read & Write)
-5. Copy the token and paste into Push settings
+5. If deploying GitHub Actions workflows (e.g. Cloudflare Workers), also enable **Workflows** (Read & Write)
+6. Copy the token and paste into Push settings
 
-Or use a classic token with **repo** scope for simplicity.
+Or use a classic token with **repo** and **workflow** scope for simplicity.
 
 ---
 

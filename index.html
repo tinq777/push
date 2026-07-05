@@ -1,0 +1,4500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.counter.dev https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://api.github.com; script-src 'self' 'unsafe-inline' https://cdn.counter.dev https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src https://api.github.com https://cdn.counter.dev;">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="X-Frame-Options" content="DENY">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Push">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="apple-touch-icon" href="apple-touch-icon.svg">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<title>Push</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --border: #222222;
+  --border-strong: #333333;
+  --text: #f0f0f0;
+  --muted: #555555;
+  --accent: #f0f0f0;
+  --accent-light: #1a1a1a;
+  --green: #00c969;
+  --green-bg: #0a1f14;
+  --red: #ff4444;
+  --red-bg: #1f0a0a;
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  height: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Views ── */
+.view {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.view.active { display: flex; }
+
+/* ── Shared header ── */
+.header {
+  padding: 56px 24px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.header-title {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.header {
+  padding: 56px 24px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  margin-bottom: 4px;
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--text);
+}
+
+.icon-btn:active { transform: scale(0.94); }
+
+/* ── Home View ── */
+#homeView .scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px 120px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.wordmark {
+  font-size: 38px;
+  font-weight: 300;
+  letter-spacing: -2px;
+  line-height: 1;
+  margin-bottom: 0;
+  color: var(--text);
+}
+
+.wordmark strong {
+  font-weight: 800;
+  letter-spacing: -2px;
+  color: #ffffff;
+}
+
+.wordmark em {
+  font-style: italic;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+.platform-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  min-height: 14px;
+}
+
+.platform-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+
+.platform-status-dot.ok { background: #00c969; }
+
+.platform-status-text {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+  letter-spacing: 0.02em;
+}
+
+/* Pull to refresh */
+.pull-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: height 0.15s, opacity 0.15s;
+}
+
+.pull-indicator.visible {
+  height: 48px;
+  opacity: 1;
+}
+
+.pull-indicator.refreshing {
+  height: 48px;
+  opacity: 1;
+}
+
+.pull-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-strong);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pull-indicator.refreshing .pull-spinner {
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.pull-text {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 20px;
+  transition: border-color 0.15s;
+}
+
+.search-bar:focus-within { border-color: var(--border-strong); }
+
+.search-icon { font-size: 14px; opacity: 0.4; flex-shrink: 0; }
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.search-input::placeholder { color: var(--muted); }
+
+.search-clear {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  display: none;
+  line-height: 1;
+}
+
+/* Section label */
+.section-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+/* Recent row — horizontal scroll */
+.recent-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  margin: 0 -24px 24px;
+  padding: 0 24px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.recent-row::-webkit-scrollbar { display: none; }
+
+.recent-card {
+  flex-shrink: 0;
+  width: 90px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  user-select: none;
+}
+
+.recent-card:active {
+  border-color: var(--border-strong);
+  transform: scale(0.97);
+}
+
+.recent-emoji {
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--bg);
+  border-radius: 12px;
+  margin: 0 auto 8px;
+}
+
+.recent-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+  margin-top: 3px;
+}
+
+/* Favourites row */
+.fav-section { margin-bottom: 24px; }
+
+.fav-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  margin: 0 -24px;
+  padding: 0 24px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.fav-row::-webkit-scrollbar { display: none; }
+
+.fav-card {
+  flex-shrink: 0;
+  width: 90px;
+  background: var(--surface);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 14px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  user-select: none;
+  position: relative;
+}
+
+.fav-card:active { transform: scale(0.97); }
+
+.fav-card-emoji {
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--bg);
+  border-radius: 12px;
+  margin: 0 auto 8px;
+}
+
+.fav-card-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Bookmark icon on grid card */
+.app-grid-item {
+  position: relative;
+}
+
+.fav-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.3;
+  transition: opacity 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fav-btn.active { opacity: 1; }
+.fav-btn svg { display: block; }
+
+/* App grid — paged swipe */
+.app-grid-wrapper {
+  position: relative;
+  margin-bottom: 12px;
+  overflow: hidden;
+  margin: 0 -24px 8px;
+}
+
+.app-grid-pages {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.app-grid-pages::-webkit-scrollbar { display: none; }
+
+.app-grid-page {
+  min-width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, auto);
+  gap: 10px;
+  padding: 0 24px;
+  scroll-snap-align: start;
+  box-sizing: border-box;
+}
+
+.app-grid-item {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 8px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+  -webkit-user-select: none;
+  min-width: 0;
+  text-align: center;
+  position: relative;
+}
+
+.app-grid-item:active {
+  border-color: var(--border-strong);
+  transform: scale(0.96);
+}
+
+.app-grid-emoji {
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--bg);
+  border-radius: 12px;
+  margin: 0 auto 8px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  pointer-events: none;
+}
+
+.app-grid-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  pointer-events: none;
+}
+
+.app-grid-repo { display: none; }
+
+/* Page dots */
+.page-dots {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  padding: 10px 0 16px;
+}
+
+.page-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  transition: background 0.2s, transform 0.2s;
+}
+
+.page-dot.active {
+  background: #ffffff;
+  transform: scale(1.2);
+}
+
+/* List view (search results) */
+.app-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.app-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.app-item:active {
+  border-color: var(--border-strong);
+  transform: scale(0.99);
+}
+
+.app-emoji {
+  font-size: 22px;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-light);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.app-info { flex: 1; min-width: 0; }
+
+.app-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.app-repo {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 300;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-chevron { color: var(--border-strong); font-size: 16px; flex-shrink: 0; }
+
+.empty-state {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  grid-column: 1 / -1;
+}
+
+.no-results {
+  padding: 32px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Add app button */
+.add-btn {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 16px;
+  background: none;
+  color: #ffffff;
+  border: 1.5px solid #ffffff;
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 16px;
+}
+
+.add-btn:active { opacity: 0.7; transform: scale(0.99); }
+
+/* ── Deploy View ── */
+#deployView .scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px 120px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.deploy-app-name {
+  font-size: 28px;
+  font-weight: 300;
+  letter-spacing: -1px;
+  margin-bottom: 4px;
+}
+
+.deploy-app-repo {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 300;
+  margin-bottom: 32px;
+}
+
+/* Live URL bar */
+.live-url-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  margin-bottom: 0;
+  transition: border-color 0.15s;
+}
+
+.live-url-text {
+  flex: 1;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 300;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+}
+
+.live-url-share {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.4;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.live-url-share:active { opacity: 1; }
+
+/* Stats row */
+.stats-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 24px;
+  margin-top: -16px;
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.stat-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.stat-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 12px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.deploy-section-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+
+/* Drop zone */
+.drop-zone {
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 12px;
+  background: var(--surface);
+}
+
+.drop-zone.drag-over, .drop-zone.has-file {
+  border-color: var(--accent);
+  border-style: solid;
+  background: var(--accent-light);
+}
+
+.drop-title {
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.drop-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+input[type="file"] { display: none; }
+
+/* File pill */
+.file-pill {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  margin-bottom: 24px;
+}
+
+.file-pill.visible { display: flex; }
+
+.file-pill-name {
+  flex: 1;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-pill-clear {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  opacity: 0.6;
+  line-height: 1;
+}
+
+/* Progress steps */
+.progress-wrap {
+  display: none;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 24px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.progress-wrap.visible { display: flex; }
+
+.progress-step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+}
+
+.progress-step:last-child { border-bottom: none; }
+.progress-step.active { background: var(--accent-light); }
+.progress-step.done { background: var(--green-bg); }
+.progress-step.err { background: var(--red-bg); }
+
+.step-indicator {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.progress-step.active .step-indicator {
+  border-color: var(--accent);
+  color: var(--accent);
+  animation: breathe 1.2s ease-in-out infinite;
+}
+
+.progress-step.done .step-indicator {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+  font-size: 13px;
+}
+
+.progress-step.err .step-indicator {
+  background: var(--red);
+  border-color: var(--red);
+  color: white;
+  font-size: 13px;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.step-label {
+  font-size: 13px;
+  color: var(--muted);
+  transition: color 0.2s;
+}
+
+.progress-step.active .step-label { color: var(--text); font-weight: 500; }
+.progress-step.done .step-label { color: var(--green); }
+.progress-step.err .step-label { color: var(--red); }
+
+/* Result */
+.result-wrap {
+  display: none;
+  padding: 20px;
+  background: var(--green-bg);
+  border: 1.5px solid var(--green);
+  border-radius: var(--radius);
+  margin-bottom: 24px;
+}
+
+.result-wrap.visible { display: block; }
+
+.result-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 8px;
+}
+
+.result-url {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: var(--green);
+  font-weight: 400;
+  word-break: break-all;
+  margin-bottom: 14px;
+}
+
+.result-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.result-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  text-align: center;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.result-btn.primary {
+  background: #ffffff;
+  color: #000000;
+  border: none;
+}
+
+.result-btn.secondary {
+  background: none;
+  color: #ffffff;
+  border: 1.5px solid var(--border-strong);
+}
+
+.result-btn:active { opacity: 0.7; }
+
+.history-version {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: #ffffff;
+  background: var(--border-strong);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 400;
+}
+
+/* Scan live button */
+.scan-live-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.scan-live-btn:active { opacity: 1; }
+.scan-live-btn.scanning { opacity: 1; animation: breathe 1s ease-in-out infinite alternate; }
+
+/* Deploy history */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.history-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s;
+  flex-direction: column;
+}
+
+.history-item:active { border-color: var(--border-strong); }
+
+.history-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+
+.history-expanded {
+  display: none;
+  width: 100%;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+}
+
+.history-expanded.open { display: block; }
+
+.history-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.history-detail-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.history-detail-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text);
+  font-weight: 400;
+}
+
+.history-commit-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-decoration: none;
+  margin-top: 4px;
+  transition: border-color 0.15s;
+}
+
+.history-commit-link:active { border-color: var(--border-strong); }
+
+.history-commit-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 300;
+  flex: 1;
+}
+
+.history-status {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.history-status-pending {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  border-top-color: #ffffff;
+  animation: spin 1.2s linear infinite;
+}
+
+.history-status-live {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.history-info { flex: 1; min-width: 0; }
+
+.history-message {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+/* ── Bottom CTA ── */
+.bottom-cta {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 24px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+  pointer-events: none;
+}
+
+.cta-btn {
+  width: 100%;
+  padding: 16px;
+  background: #ffffff;
+  color: #000000;
+  border: none;
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  pointer-events: all;
+  letter-spacing: -0.2px;
+}
+
+.cta-btn:disabled {
+  background: var(--border-strong);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.cta-btn:not(:disabled):active { transform: scale(0.98); opacity: 0.9; }
+
+/* ── Settings / Add App Sheet ── */
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 50;
+  display: none;
+  align-items: flex-end;
+  backdrop-filter: blur(2px);
+}
+
+.sheet-overlay.open { display: flex; }
+
+.sheet {
+  width: 100%;
+  background: var(--surface);
+  border-radius: 24px 24px 0 0;
+  padding: 0 24px;
+  padding-bottom: max(32px, env(safe-area-inset-bottom));
+  max-height: 92vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border-strong);
+  border-radius: 2px;
+  margin: 12px auto 24px;
+}
+
+.sheet-title {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  margin-bottom: 24px;
+}
+
+/* Form fields */
+.field {
+  margin-bottom: 16px;
+}
+
+.field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.field input {
+  width: 100%;
+  padding: 14px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: 'DM Mono', monospace;
+  font-size: 16px;
+  font-weight: 300;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+}
+
+.field input:focus { border-color: var(--accent); }
+.field input::placeholder { color: var(--muted); }
+
+.emoji-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+  max-height: 180px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 2px;
+}
+
+.emoji-opt {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.emoji-opt.selected {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.sheet-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.sheet-btn {
+  flex: 1;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  border: none;
+}
+
+.sheet-btn:active { opacity: 0.7; }
+
+.sheet-btn.primary { background: #ffffff; color: #000000; }
+.sheet-btn.ghost { background: var(--surface); color: var(--muted); border: 1.5px solid var(--border); }
+.sheet-btn.danger { background: var(--red-bg); color: var(--red); }
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 20px 0;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #1a1a1a;
+  color: #ffffff;
+  border: 1px solid var(--border-strong);
+  padding: 10px 18px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  transition: all 0.25s;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 100;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Hint */
+.pwa-hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 12px 0 0;
+  letter-spacing: 0.02em;
+}
+
+/* ── Onboarding ── */
+#onboardView {
+  background: var(--bg);
+}
+
+#onboardView .scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px 140px;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+}
+
+.onboard-slides {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.onboard-slide {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  animation: fadeSlide 0.3s ease;
+}
+
+.onboard-slide.active { display: flex; }
+
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.onboard-step-indicator {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 48px;
+}
+
+.onboard-pip {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-strong);
+  flex: 1;
+  transition: background 0.3s;
+}
+
+.onboard-pip.active { background: #ffffff; }
+
+.onboard-icon {
+  font-size: 52px;
+  margin-bottom: 24px;
+  display: block;
+  line-height: 1;
+}
+
+.onboard-title {
+  font-size: 32px;
+  font-weight: 300;
+  letter-spacing: -1.5px;
+  line-height: 1.1;
+  margin-bottom: 16px;
+  color: var(--text);
+}
+
+.onboard-title strong {
+  font-weight: 500;
+}
+
+.onboard-body {
+  font-size: 16px;
+  color: var(--muted);
+  line-height: 1.6;
+  font-weight: 300;
+  margin-bottom: 32px;
+}
+
+.onboard-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.onboard-step-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.onboard-step-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-light);
+  border: 1.5px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.onboard-step-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.onboard-step-text span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 300;
+}
+
+.onboard-note {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: var(--green-bg);
+  border: 1.5px solid var(--green);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--green);
+  line-height: 1.5;
+}
+
+.onboard-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 24px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onboard-next-btn {
+  width: 100%;
+  padding: 16px;
+  background: #ffffff;
+  color: #000000;
+  border: none;
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  letter-spacing: -0.2px;
+  transition: opacity 0.15s;
+}
+
+.onboard-next-btn:active { opacity: 0.85; }
+
+.onboard-skip-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px;
+  text-align: center;
+}
+
+/* Settings sheet */
+.settings-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 16px 0 20px;
+}
+
+.settings-summary-item {
+  flex: 1;
+  text-align: center;
+}
+
+.settings-summary-value {
+  display: block;
+  font-family: 'DM Mono', monospace;
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.settings-summary-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.settings-summary-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.settings-section-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 16px 0 12px;
+}
+
+.settings-row-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+
+.settings-row-btn:active { border-color: var(--border-strong); }
+
+.settings-about-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-about-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+.settings-about-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 400;
+}
+
+/* Readiness score card */
+.readiness-card {
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.readiness-score {
+  font-family: 'DM Mono', monospace;
+  font-size: 36px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 4px;
+  line-height: 1;
+}
+
+.readiness-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  font-weight: 300;
+}
+
+.readiness-bar-track {
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.readiness-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+  background: #00c969;
+}
+
+.readiness-bar-fill.medium { background: #ffaa00; }
+.readiness-bar-fill.high { background: #ff4444; }
+
+/* Issue summary button */
+.issue-summary-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.issue-summary-btn:active { border-color: var(--border-strong); }
+
+.issue-counts {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.issue-count-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.issue-count-item.critical { color: #ff4444; }
+.issue-count-item.warning { color: #ffaa00; }
+.issue-count-item.info { color: #4488ff; }
+.issue-count-item.clean { color: #00c969; }
+
+/* Security scan */
+.security-summary {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.security-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.security-badge.critical {
+  background: #1f0a0a;
+  border: 1px solid #ff444433;
+  color: #ff4444;
+}
+
+.security-badge.warning {
+  background: #1f1a0a;
+  border: 1px solid #ffaa0033;
+  color: #ffaa00;
+}
+
+.security-badge.info {
+  background: #0a0f1f;
+  border: 1px solid #4488ff33;
+  color: #4488ff;
+}
+
+.security-badge.clean {
+  background: #0a1f14;
+  border: 1px solid #00c96933;
+  color: #00c969;
+}
+
+.security-findings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.security-finding {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.security-finding.critical { border-color: #ff444433; }
+.security-finding.warning { border-color: #ffaa0033; }
+.security-finding.info { border-color: #4488ff33; }
+
+.security-finding-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.security-finding.critical .security-finding-icon { background: #1f0a0a; }
+.security-finding.warning .security-finding-icon { background: #1f1a0a; }
+.security-finding.info .security-finding-icon { background: #0a0f1f; }
+
+.security-finding-body { flex: 1; min-width: 0; }
+
+.security-finding-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.security-finding-detail {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.security-finding-file {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 300;
+  margin-top: 2px;
+}
+
+/* ── Toggle ── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.toggle-row:active { border-color: var(--border-strong); }
+
+.toggle-info { flex: 1; }
+
+.toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.toggle-sub {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+  font-family: 'DM Mono', monospace;
+  font-weight: 300;
+}
+
+.toggle {
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  background: var(--border-strong);
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.toggle.on { background: #ffffff; }
+
+.toggle-knob {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.toggle.on .toggle-knob { transform: translateX(18px); }
+
+</style>
+<!-- Anonymous visit counter — no personal data collected -->
+<script src="https://cdn.counter.dev/script.js" data-id="a7a4213f-b305-491b-8d69-4c4607c0af2f" data-utcoffset="10"></script>
+</head>
+<body>
+
+<!-- ══════════════════ ONBOARDING VIEW ══════════════════ -->
+<div class="view" id="onboardView">
+  <div class="header">
+    <span class="header-title">Push</span>
+    <div style="width:36px"></div>
+  </div>
+
+  <div class="scroll">
+    <div class="onboard-slides">
+
+      <!-- Step indicators -->
+      <div class="onboard-step-indicator">
+        <div class="onboard-pip active" id="pip0"></div>
+        <div class="onboard-pip" id="pip1"></div>
+        <div class="onboard-pip" id="pip2"></div>
+      </div>
+
+      <!-- Slide 1: Welcome -->
+      <div class="onboard-slide active" id="slide0">
+        <span class="onboard-icon">🚀</span>
+        <div class="onboard-title">Deploy your<br><strong>AI-built apps</strong><br>from your phone.</div>
+        <div class="onboard-body">Push connects to your GitHub account and publishes your apps live — in one tap. No laptop. No terminal. No fuss.</div>
+        <div class="onboard-steps">
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">1</div>
+            <div class="onboard-step-text">Ask an AI to build your app
+              <span>Get a ZIP or HTML file from the chat</span>
+            </div>
+          </div>
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">2</div>
+            <div class="onboard-step-text">Open Push, select the file
+              <span>Pick a ZIP or HTML from your Files app</span>
+            </div>
+          </div>
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">3</div>
+            <div class="onboard-step-text">Tap Deploy
+              <span>Push scans for security issues, then goes live</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 2: Add to home screen -->
+      <div class="onboard-slide" id="slide1">
+        <span class="onboard-icon">📲</span>
+        <div class="onboard-title">Install Push<br>on your<br><strong>home screen.</strong></div>
+        <div class="onboard-body">Push lives on your home screen just like a native app — no App Store needed.</div>
+        <div class="onboard-steps">
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">1</div>
+            <div class="onboard-step-text">Tap the Share button in Safari
+              <span>The box with an arrow pointing up ↑</span>
+            </div>
+          </div>
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">2</div>
+            <div class="onboard-step-text">Tap "Add to Home Screen"
+              <span>Scroll down in the share sheet</span>
+            </div>
+          </div>
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">3</div>
+            <div class="onboard-step-text">Tap Add
+              <span>Push icon appears on your home screen</span>
+            </div>
+          </div>
+        </div>
+        <div class="onboard-note">💡 Already done? Skip this step — you're good.</div>
+      </div>
+
+      <!-- Slide 3: Connect platform -->
+      <div class="onboard-slide" id="slide2">
+        <span class="onboard-icon">🔑</span>
+        <div class="onboard-title">Connect<br>your<br><strong>platform.</strong></div>
+        <div class="onboard-body">Push needs a GitHub Personal Access Token to deploy your apps. It's stored only on your device — never sent anywhere except directly to GitHub.</div>
+        <div class="onboard-steps">
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">1</div>
+            <div class="onboard-step-text">Go to GitHub.com → Settings
+              <span>Top right profile menu → Settings</span>
+            </div>
+          </div>
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">2</div>
+            <div class="onboard-step-text">Generate a Personal Access Token
+              <span>Developer settings → Tokens (classic) → enable repo scope</span>
+            </div>
+          </div>
+          <div class="onboard-step-row">
+            <div class="onboard-step-num">3</div>
+            <div class="onboard-step-text">Paste it into Push
+              <span>Tap the gear icon ⚙ on the home screen</span>
+            </div>
+          </div>
+        </div>
+        <div class="onboard-note">🔒 Your token is stored locally on your device only. Push never stores or shares it anywhere.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="onboard-bottom">
+    <button class="onboard-next-btn" id="onboardNextBtn">Get Started →</button>
+    <button class="onboard-skip-btn" id="onboardSkipBtn">Skip setup</button>
+  </div>
+</div>
+
+<!-- ══════════════════ HOME VIEW ══════════════════ -->
+<div class="view active" id="homeView">
+  <div class="header">
+    <div>
+      <span class="wordmark"><strong>Push</strong><em>.</em></span>
+      <div class="platform-status" id="platformStatus"></div>
+    </div>
+    <button class="icon-btn" id="globalSettingsBtn" title="Settings">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+        <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="scroll" id="homeScroll">
+
+    <!-- Pull to refresh indicator -->
+    <div class="pull-indicator" id="pullIndicator">
+      <div class="pull-spinner" id="pullSpinner"></div>
+      <span class="pull-text" id="pullText">Pull to refresh</span>
+    </div>
+
+    <!-- Search -->
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="searchInput" type="text" placeholder="Search apps…">
+      <button class="search-clear" id="searchClear">✕</button>
+    </div>
+
+    <!-- Search results (shown when searching) -->
+    <div id="searchResults" style="display:none">
+      <div class="app-list" id="searchList"></div>
+    </div>
+
+    <!-- Normal home content -->
+    <div id="homeContent">
+      <!-- Favourites -->
+      <div id="favSection" class="fav-section" style="display:none">
+        <div class="section-label">Favourites</div>
+        <div class="fav-row" id="favRow"></div>
+      </div>
+
+      <!-- Recent -->
+      <div id="recentSection" style="display:none">
+        <div class="section-label">Recent</div>
+        <div class="recent-row" id="recentRow"></div>
+      </div>
+
+      <!-- All apps grid -->
+      <div class="section-label" id="allAppsLabel">Your Apps</div>
+      <div class="app-grid-wrapper">
+        <div class="app-grid-pages" id="appGrid"></div>
+      </div>
+      <div class="page-dots" id="pageDots"></div>
+
+      <button class="add-btn" id="addAppBtn">
+        <span>+</span>
+        <span>Add App</span>
+      </button>
+
+      <div class="pwa-hint">Tip: Share → Add to Home Screen to install</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ DEPLOY VIEW ══════════════════ -->
+<div class="view" id="deployView">
+  <div class="header">
+    <button class="icon-btn" id="backBtn">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <path d="M8.84 2.16a.5.5 0 010 .707L4.707 7H13.5a.5.5 0 010 1H4.707l4.133 4.133a.5.5 0 11-.707.707l-5-5a.5.5 0 010-.707l5-5a.5.5 0 01.707 0z" fill="currentColor"/>
+      </svg>
+    </button>
+    <span class="header-title" id="deployHeaderTitle">Deploy</span>
+    <button class="icon-btn" id="editAppBtn" title="Edit">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <path d="M11.854.146a.5.5 0 00-.707 0l-10 10A.5.5 0 001 10.5V13.5a.5.5 0 00.5.5h3a.5.5 0 00.354-.146l10-10a.5.5 0 000-.707l-3-3zM2 13V11.207l9.5-9.5L13.293 3.5l-9.5 9.5H2z" fill="currentColor"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="scroll" id="deployScroll">
+    <!-- Pull to refresh -->
+    <div class="pull-indicator" id="deployPullIndicator">
+      <div class="pull-spinner"></div>
+      <span class="pull-text" id="deployPullText">Pull to refresh</span>
+    </div>
+
+    <div class="deploy-app-name" id="deployAppName">App Name</div>
+    <div class="deploy-app-repo" id="deployAppRepo">username/repo</div>
+
+    <div class="live-url-bar">
+      <svg width="14" height="14" viewBox="0 0 15 15" fill="none" style="flex-shrink:0;opacity:0.5">
+        <path d="M7.5 1a6.5 6.5 0 100 13A6.5 6.5 0 007.5 1zM1.05 8h2.47a11.1 11.1 0 00.91 3.5A5.51 5.51 0 011.05 8zm0-1a5.51 5.51 0 013.38-3.5A11.1 11.1 0 004.52 7H1.05zM7 7H4.53a10.1 10.1 0 01.86-3.24C5.92 2.87 6.67 2 7 2v5zm0 1v5c-.33 0-1.08-.87-1.61-1.76A10.1 10.1 0 014.53 8H7zm1 5V8h2.47a10.1 10.1 0 01-.86 3.24C9.08 12.13 8.33 13 8 13zm0-6V2c.33 0 1.08.87 1.61 1.76A10.1 10.1 0 0110.47 7H8zm1.57 4.5A11.1 11.1 0 0010.48 8h2.47a5.51 5.51 0 01-3.38 3.5zm3.38-4.5h-2.47a11.1 11.1 0 00-.91-3.5A5.51 5.51 0 0112.95 7z" fill="currentColor" style="color:#ffffff"/>
+      </svg>
+      <a class="live-url-text" id="liveUrlBar" href="#" target="_blank">—</a>
+      <svg width="10" height="10" viewBox="0 0 15 15" fill="none" style="flex-shrink:0;opacity:0.3">
+        <path d="M3 2h9a1 1 0 011 1v9M13 2L2 13" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <div style="width:1px;height:14px;background:var(--border);flex-shrink:0;margin:0 2px"></div>
+      <button class="live-url-share" id="shareBtn" title="Share">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+          <path d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m6.632 4.684a3 3 0 10-2.684-5.368m2.684 5.368a3 3 0 01-2.684-5.368m0 0L8.684 10.658" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Traffic stats -->
+    <div class="stats-row" id="statsRow">
+      <div class="stat-item" style="flex-direction:column;align-items:flex-start;gap:2px">
+        <div style="display:flex;align-items:center;gap:4px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="opacity:0.4;flex-shrink:0">
+            <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke="white" stroke-width="1.5"/>
+            <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke="white" stroke-width="1.5"/>
+          </svg>
+          <span class="stat-value" id="statViews">—</span>
+          <span class="stat-label">repo visits</span>
+        </div>
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:#333;font-weight:300">github.com repo only</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="opacity:0.4;flex-shrink:0">
+          <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span class="stat-value" id="statUniques">—</span>
+        <span class="stat-label">unique</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-label" id="statPeriod">14 days</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <button class="scan-live-btn" id="scanLiveBtn" title="Scan live app for security issues">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="stat-label">scan</span>
+        </button>
+      </div>
+    </div>
+
+    <input type="file" id="fileInput" accept=".zip,.html,.htm">
+
+    <div class="drop-zone" id="dropZone">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style="margin:0 auto 12px;display:block;opacity:0.4">
+        <path d="M12 3v13M7 8l5-5 5 5M5 21h14" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="drop-title" id="dropTitle">Select ZIP or HTML file</div>
+      <div class="drop-sub">Tap to browse · from Files app</div>
+    </div>
+
+    <div class="file-pill" id="filePill">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;opacity:0.5">
+        <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M13 2v7h7" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>
+      <span class="file-pill-name" id="filePillName">—</span>
+      <button class="file-pill-clear" id="filePillClear">✕</button>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-step" id="ps1">
+        <div class="step-indicator">1</div>
+        <span class="step-label">Reading file</span>
+      </div>
+      <div class="progress-step" id="ps2">
+        <div class="step-indicator">2</div>
+        <span class="step-label">Connecting to GitHub</span>
+      </div>
+      <div class="progress-step" id="ps3">
+        <div class="step-indicator">3</div>
+        <span class="step-label">Pushing files</span>
+      </div>
+      <div class="progress-step" id="ps4">
+        <div class="step-indicator" id="ps5num">4</div>
+        <span class="step-label">Complete</span>
+      </div>
+    </div>
+
+    <div class="result-wrap" id="resultWrap">
+      <div class="result-label">Live at</div>
+      <div class="result-url" id="resultUrl">—</div>
+      <div class="result-actions">
+        <a class="result-btn primary" id="openUrlBtn" href="#" target="_blank">
+          Open
+          <svg width="11" height="11" viewBox="0 0 15 15" fill="none" style="margin-left:5px;flex-shrink:0">
+            <path d="M3 2h9a1 1 0 011 1v9M13 2L2 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </a>
+        <button class="result-btn secondary" id="copyUrlBtn">Copy URL</button>
+      </div>
+    </div>
+
+    <!-- Deploy history -->
+    <div id="deployHistory" style="display:none">
+      <div class="section-label" style="margin-bottom:10px">Deployed</div>
+      <div class="history-list" id="historyList"></div>
+    </div>
+
+  </div>
+
+  <div class="bottom-cta">
+    <button class="cta-btn" id="deployBtn" disabled>Deploy</button>
+  </div>
+</div>
+
+<!-- ══════════════════ TOKEN SHEET ══════════════════ -->
+<div class="sheet-overlay" id="tokenSheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Settings</div>
+
+    <!-- App summary -->
+    <div class="settings-summary" id="settingsSummary">
+      <div class="settings-summary-item">
+        <span class="settings-summary-value" id="summaryApps">0</span>
+        <span class="settings-summary-label">Apps</span>
+      </div>
+      <div class="settings-summary-divider"></div>
+      <div class="settings-summary-item">
+        <span class="settings-summary-value" id="summaryDeploys">0</span>
+        <span class="settings-summary-label">Deploys</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Platform -->
+    <div class="settings-section-label">GitHub</div>
+    <div class="field">
+      <label>GitHub Username</label>
+      <input type="text" id="globalUsernameInput" placeholder="your-username" autocapitalize="none" maxlength="39">
+    </div>
+    <div class="field">
+      <label>Personal Access Token</label>
+      <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxx" maxlength="100">
+    </div>
+
+    <!-- Remember token toggle -->
+    <div class="toggle-row" id="rememberTokenRow" style="margin-bottom:12px">
+      <div class="toggle-info">
+        <div class="toggle-label">Remember token on this device</div>
+        <div class="toggle-sub">Off = session only, cleared when app closes</div>
+      </div>
+      <div class="toggle" id="rememberTokenToggle">
+        <div class="toggle-knob"></div>
+      </div>
+    </div>
+
+    <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:8px;">
+      Use a <strong>fine-grained token</strong> for better security — limit access to Push repos only with Contents and Pages permissions. For apps using GitHub Actions (e.g. Cloudflare Workers), also enable the <strong>workflow</strong> scope. <a href="https://github.com/settings/tokens" target="_blank" style="color:#ffffff;opacity:0.6;text-decoration:none;border-bottom:1px solid #333">GitHub token settings ↗</a>
+    </p>
+    <p style="font-size:12px;color:#ff444488;line-height:1.5;margin-bottom:16px;">
+      🔒 If you lose your device, revoke your token immediately at github.com/settings/tokens
+    </p>
+
+    <div class="sheet-actions" style="margin-bottom:12px">
+      <button class="sheet-btn ghost" id="tokenCancel">Cancel</button>
+      <button class="sheet-btn primary" id="tokenSave">Save</button>
+    </div>
+
+    <!-- Disconnect button — only shown when connected -->
+    <button class="settings-row-btn" id="disconnectBtn" style="display:none;margin-bottom:20px;border-color:#ff444433;color:#ff4444">
+      <span>Disconnect GitHub</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="opacity:0.6">
+        <path d="M18 6L6 18M6 6l12 12" stroke="#ff4444" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <div class="divider"></div>
+
+    <!-- Data -->
+    <div class="settings-section-label">Data</div>
+    <button class="settings-row-btn" id="clearDataBtn">
+      <span>Clear all local data</span>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="opacity:0.4">
+        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    <div class="divider"></div>
+
+    <!-- About -->
+    <div class="settings-section-label">About</div>
+    <div class="settings-about-row">
+      <span class="settings-about-label">Version</span>
+      <span class="settings-about-value">1.0.0</span>
+    </div>
+    <div class="settings-about-row">
+      <span class="settings-about-label">Built with</span>
+      <span class="settings-about-value">Claude</span>
+    </div>
+    <a class="settings-row-btn" href="https://github.com/tinq777/push/issues/new" target="_blank" style="text-decoration:none;margin-top:8px">
+      <span>Submit feedback</span>
+      <svg width="11" height="11" viewBox="0 0 15 15" fill="none" style="opacity:0.4">
+        <path d="M3 2h9a1 1 0 011 1v9M13 2L2 13" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </a>
+    <a class="settings-row-btn" href="https://github.com/tinq777/push" target="_blank" style="text-decoration:none;margin-top:8px">
+      <span>⭐ Star Push on GitHub</span>
+      <svg width="11" height="11" viewBox="0 0 15 15" fill="none" style="opacity:0.4">
+        <path d="M3 2h9a1 1 0 011 1v9M13 2L2 13" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </a>
+    <a class="settings-row-btn" href="https://tinq777.github.io/push/privacy" target="_blank" style="text-decoration:none;margin-top:8px">
+      <span>Privacy Policy</span>
+      <svg width="11" height="11" viewBox="0 0 15 15" fill="none" style="opacity:0.4">
+        <path d="M3 2h9a1 1 0 011 1v9M13 2L2 13" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </a>
+
+  </div>
+</div>
+
+<!-- ══════════════════ ADD / EDIT APP SHEET ══════════════════ -->
+<div class="sheet-overlay" id="appSheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="appSheetTitle">New App</div>
+
+    <div class="field">
+      <label>App Name</label>
+      <input type="text" id="appNameInput" placeholder="Soccer Tracker" maxlength="50">
+    </div>
+
+    <div class="field">
+      <label>Icon</label>
+      <div class="emoji-row" id="emojiRow"></div>
+    </div>
+
+    <!-- Create repo toggle (new apps only) -->
+    <div id="createRepoSection">
+      <div class="toggle-row" id="createRepoToggleRow">
+        <div class="toggle-info">
+          <div class="toggle-label">Create GitHub repo for me</div>
+          <div class="toggle-sub">Push will create the repo and enable GitHub Pages automatically</div>
+        </div>
+        <div class="toggle" id="createRepoToggle">
+          <div class="toggle-knob"></div>
+        </div>
+      </div>
+
+      <!-- Manual repo name (shown when toggle is off) -->
+      <div id="manualRepoSection" class="field">
+        <label>Repository Name</label>
+        <input type="text" id="appRepoInput" placeholder="soccer-tracker" maxlength="100">
+      </div>
+
+      <!-- Auto repo name (shown when toggle is on) -->
+      <div id="autoRepoSection" style="display:none">
+        <div class="field">
+          <label>Repository Name</label>
+          <input type="text" id="appRepoAutoInput" placeholder="soccer-tracker" maxlength="100">
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;font-family:'DM Mono',monospace;font-weight:300;">
+            Will create: github.com/<span id="repoPreviewUser">username</span>/<span id="repoPreviewName">repo</span>
+          </div>
+        </div>
+        <div class="onboard-note" style="margin-bottom:16px;">
+          🔒 Repo will be <strong>public</strong> so GitHub Pages works on the free plan. Only the URL is needed to access your app.
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Branch</label>
+      <input type="text" id="appBranchInput" placeholder="main" maxlength="50">
+    </div>
+
+    <!-- Skip security scan toggle -->
+    <div class="toggle-row" id="skipScanToggleRow">
+      <div class="toggle-info">
+        <div class="toggle-label">Skip security scan</div>
+        <div class="toggle-sub">For trusted apps — bypasses scan on deploy</div>
+      </div>
+      <div class="toggle" id="skipScanToggle">
+        <div class="toggle-knob"></div>
+      </div>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="sheet-btn ghost" id="appCancel">Cancel</button>
+      <button class="sheet-btn primary" id="appSave">Save App</button>
+    </div>
+
+    <div id="deleteSection" style="display:none">
+      <div class="divider"></div>
+      <button class="sheet-btn danger" id="appDelete" style="width:100%">Delete App</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ SECURITY SCAN SHEET ══════════════════ -->
+<div class="sheet-overlay" id="securitySheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="securitySheetTitle">Security Scan</div>
+
+    <!-- Readiness score -->
+    <div class="readiness-card" id="readinessCard">
+      <div class="readiness-score" id="readinessScore">—</div>
+      <div class="readiness-label" id="readinessLabel">Calculating…</div>
+      <div class="readiness-bar-track">
+        <div class="readiness-bar-fill" id="readinessBarFill"></div>
+      </div>
+    </div>
+
+    <!-- Issue summary — tap to expand -->
+    <button class="issue-summary-btn" id="issueSummaryBtn" style="display:none">
+      <div class="issue-counts" id="issueCounts"></div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" id="issueSummaryChevron">
+        <path d="M6 9l6 6 6-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+      </svg>
+    </button>
+
+    <!-- Findings (collapsed by default) -->
+    <div class="security-findings" id="securityFindings" style="display:none"></div>
+
+    <button class="settings-row-btn" id="copyReportBtn" style="margin-top:12px;display:none">
+      <span>Copy report to fix with AI</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="opacity:0.4;flex-shrink:0">
+        <rect x="9" y="9" width="13" height="13" rx="2" stroke="white" stroke-width="1.5"/>
+        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <div class="sheet-actions" style="margin-top:12px">
+      <button class="sheet-btn ghost" id="securityCancel">Cancel</button>
+      <button class="sheet-btn primary" id="securityContinue">Deploy Anyway</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ FILE MISMATCH WARNING ══════════════════ -->
+<div class="sheet-overlay" id="mismatchSheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Wrong file?</div>
+    <p style="font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:20px;" id="mismatchMsg">
+      The file name doesn't match your app name. Are you sure you want to deploy this?
+    </p>
+    <div class="sheet-actions">
+      <button class="sheet-btn ghost" id="mismatchCancel">Cancel</button>
+      <button class="sheet-btn primary" id="mismatchContinue">Deploy Anyway</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Security — sanitise user input before rendering in HTML ──
+function sanitise(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
+// ── Storage helpers ──
+const store = {
+  get: (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+};
+
+// ── State ──
+let apps = store.get('push_apps') || [];
+// Token can be stored in localStorage (persistent) or sessionStorage (session only)
+let rememberToken = store.get('push_remember_token') !== false; // default true for existing users
+let token = rememberToken
+  ? (store.get('push_token') || sessionStorage.getItem('push_token_session') || '')
+  : (sessionStorage.getItem('push_token_session') || '');
+let globalUsername = store.get('push_username') || sessionStorage.getItem('push_username_session') || '';
+let currentAppId = null;
+let selectedFile = null;
+let editingAppId = null;
+let selectedEmoji = '📱';
+const EMOJIS = [
+  // Sports & Fitness
+  '⚽','🏀','🏈','⚾','🎾','🏐','🏉','🎱','🏓','🏸','🥊','🏋️','🤸','🏃','🚴','🧘','🏊','⛷️','🎿','🏆',
+  // Health & Life
+  '💪','❤️','🧠','🍎','🥗','💊','🩺','🛌','⚖️','🧬',
+  // Productivity & Work
+  '📝','📊','📈','📅','✅','🎯','⏰','📌','🗂️','💼','📋','🖥️','💻','⌨️','🖨️',
+  // Finance & Shopping
+  '💰','💳','🏦','📉','🛒','🧾','💹','🪙','💵','📦',
+  // Creative & Media
+  '🎨','🎵','🎬','📸','🎤','🎧','✏️','📖','🎭','🖌️',
+  // Travel & Places
+  '✈️','🗺️','🏖️','🏔️','🚗','🏠','🌍','⛺','🚢','🗼',
+  // Food & Drink
+  '🍕','🍔','☕','🍜','🍣','🥤','🍷','🧁','🥑','🍳',
+  // Nature & Animals
+  '🌱','🌸','🐶','🐱','🦁','🌊','⚡','🌙','☀️','🔥',
+  // Tech & Tools
+  '🔧','⚙️','🔑','🛡️','📡','🤖','💡','🔭','🧪','🚀',
+  // Misc
+  '📱','🎮','🎲','🧩','🎁','🏡','👨‍👩‍👧','📣','🌈','⭐'
+];
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+// ── Views ──
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── Platform status ──
+function updateTokenStatus() {
+  const status = document.getElementById('platformStatus');
+  if (!status) return;
+  if (token && globalUsername) {
+    status.innerHTML = `
+      <div class="platform-status-dot ok"></div>
+      <span class="platform-status-text">GitHub · ${sanitise(globalUsername)}${rememberToken ? '' : ' · session only'}</span>
+    `;
+  } else {
+    status.innerHTML = `
+      <div class="platform-status-dot"></div>
+      <span class="platform-status-text">No GitHub token — tap ⚙ to connect</span>
+    `;
+  }
+}
+
+// ── Search ──
+let searchQuery = '';
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  searchQuery = e.target.value.trim().toLowerCase();
+  document.getElementById('searchClear').style.display = searchQuery ? 'block' : 'none';
+  if (searchQuery) {
+    document.getElementById('searchResults').style.display = 'block';
+    document.getElementById('homeContent').style.display = 'none';
+    renderSearchResults();
+  } else {
+    document.getElementById('searchResults').style.display = 'none';
+    document.getElementById('homeContent').style.display = 'block';
+  }
+});
+
+document.getElementById('searchClear').addEventListener('click', () => {
+  document.getElementById('searchInput').value = '';
+  searchQuery = '';
+  document.getElementById('searchClear').style.display = 'none';
+  document.getElementById('searchResults').style.display = 'none';
+  document.getElementById('homeContent').style.display = 'block';
+});
+
+function renderSearchResults() {
+  const results = apps.filter(a =>
+    a.name.toLowerCase().includes(searchQuery) ||
+    a.repo.toLowerCase().includes(searchQuery)
+  );
+  const list = document.getElementById('searchList');
+  if (!results.length) {
+    list.innerHTML = '<div class="no-results">No apps match "' + sanitise(searchQuery) + '"</div>';
+    return;
+  }
+  list.innerHTML = results.map(app => `
+    <div class="app-item" data-id="${app.id}">
+      <div class="app-emoji">${app.emoji}</div>
+      <div class="app-info">
+        <div class="app-name">${sanitise(app.name)}</div>
+        <div class="app-repo">${sanitise(app.username)}/${sanitise(app.repo)}</div>
+      </div>
+      <div class="app-chevron">›</div>
+    </div>
+  `).join('');
+  list.querySelectorAll('.app-item').forEach(el => {
+    el.addEventListener('click', () => openDeploy(el.dataset.id));
+  });
+}
+
+// ── Render recent ──
+function renderRecent() {
+  const recent = store.get('push_recent') || [];
+  const section = document.getElementById('recentSection');
+  if (!recent.length) { section.style.display = 'none'; return; }
+
+  const recentApps = recent
+    .map(r => ({ app: apps.find(a => a.id === r.id), time: r.time }))
+    .filter(r => r.app)
+    .slice(0, 5);
+
+  if (!recentApps.length) { section.style.display = 'none'; return; }
+
+  section.style.display = 'block';
+  document.getElementById('recentRow').innerHTML = recentApps.map(({ app, time }) => `
+    <div class="recent-card" data-id="${app.id}">
+      ${renderIconHTML(app, 'recent')}
+      <div class="recent-name">${sanitise(app.name)}</div>
+      <div class="recent-time">${timeAgo(time)}</div>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.recent-card').forEach(el => {
+    el.addEventListener('click', () => openDeploy(el.dataset.id));
+  });
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  if (hours < 24) return hours + 'h ago';
+  return days + 'd ago';
+}
+
+function addToRecent(id) {
+  let recent = store.get('push_recent') || [];
+  recent = recent.filter(r => r.id !== id);
+  recent.unshift({ id, time: Date.now() });
+  recent = recent.slice(0, 10);
+  store.set('push_recent', recent);
+}
+
+// ── Render app grid ──
+// ── Bookmark SVG ──
+const bookmarkSVG = (filled) => `
+  <svg width="13" height="16" viewBox="0 0 13 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M1 1.5A.5.5 0 011.5 1h10a.5.5 0 01.5.5v13.17a.5.5 0 01-.82.385L6.5 11.03l-4.68 4.025A.5.5 0 011 14.67V1.5z"
+      fill="${filled ? '#ffffff' : 'none'}"
+      stroke="#ffffff"
+      stroke-width="1.5"
+      stroke-linejoin="round"/>
+  </svg>`;
+
+// ── Favourites ──
+function toggleFavourite(id, e) {
+  e.stopPropagation();
+  const app = apps.find(a => a.id === id);
+  if (!app) return;
+  app.favourited = !app.favourited;
+  store.set('push_apps', apps);
+  renderApps();
+  showToast(app.favourited ? 'Added to favourites' : 'Removed from favourites');
+  syncConfigToGitHub();
+}
+
+function renderFavourites() {
+  const favs = apps.filter(a => a.favourited);
+  const section = document.getElementById('favSection');
+  if (!favs.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  document.getElementById('favRow').innerHTML = favs.map(app => `
+    <div class="fav-card" data-id="${app.id}">
+      ${renderIconHTML(app, 'fav')}
+      <div class="fav-card-name">${sanitise(app.name)}</div>
+    </div>
+  `).join('');
+  document.querySelectorAll('.fav-card').forEach(el => {
+    el.addEventListener('click', () => openDeploy(el.dataset.id));
+  });
+}
+
+// ── Edit mode (drag reorder) ──
+function renderApps() {
+  const grid = document.getElementById('appGrid');
+  const label = document.getElementById('allAppsLabel');
+  const dots = document.getElementById('pageDots');
+
+  if (!apps.length) {
+    grid.innerHTML = '<div class="app-grid-page" style="display:flex;align-items:center;justify-content:center;min-height:120px"><div class="empty-state">No apps yet.<br>Add your first below.</div></div>';
+    label.style.display = 'none';
+    dots.style.display = 'none';
+    document.getElementById('recentSection').style.display = 'none';
+    document.getElementById('favSection').style.display = 'none';
+    return;
+  }
+
+  label.style.display = 'block';
+  const APPS_PER_PAGE = 9;
+  const pages = [];
+  for (let i = 0; i < apps.length; i += APPS_PER_PAGE) {
+    pages.push(apps.slice(i, i + APPS_PER_PAGE));
+  }
+
+  grid.innerHTML = pages.map((page, pi) => `
+    <div class="app-grid-page" data-page="${pi}">
+      ${page.map(app => `
+        <div class="app-grid-item" data-id="${app.id}">
+          <button class="fav-btn ${app.favourited ? 'active' : ''}" data-fav-id="${app.id}">
+            ${bookmarkSVG(!!app.favourited)}
+          </button>
+          ${renderIconHTML(app, 'grid')}
+          <div class="app-grid-name">${sanitise(app.name)}</div>
+          <div class="app-grid-repo">${sanitise(app.repo)}</div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+
+  // Page dots
+  if (pages.length > 1) {
+    dots.style.display = 'flex';
+    dots.innerHTML = pages.map((_, i) => `
+      <div class="page-dot${i === 0 ? ' active' : ''}" data-page="${i}"></div>
+    `).join('');
+    grid.addEventListener('scroll', () => {
+      const pageWidth = grid.offsetWidth;
+      const currentPage = Math.round(grid.scrollLeft / pageWidth);
+      dots.querySelectorAll('.page-dot').forEach((dot, i) => {
+        dot.classList.toggle('active', i === currentPage);
+      });
+    }, { passive: true });
+  } else {
+    dots.style.display = 'none';
+  }
+
+  grid.querySelectorAll('.app-grid-item').forEach(el => {
+    el.addEventListener('click', () => openDeploy(el.dataset.id));
+  });
+
+  grid.querySelectorAll('.fav-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => toggleFavourite(btn.dataset.favId, e));
+  });
+
+  renderFavourites();
+  renderRecent();
+}
+
+// ── GitHub Config Sync ──
+const CONFIG_REPO = 'push-config';
+const CONFIG_FILE = 'config.json';
+
+function getConfigHeaders() {
+  return {
+    'Authorization': `token ${token}`,
+    'Accept': 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json'
+  };
+}
+
+async function ensureConfigRepo() {
+  if (!token || !globalUsername) return;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${globalUsername}/${CONFIG_REPO}`, {
+      headers: getConfigHeaders()
+    });
+    if (res.status === 404) {
+      // Create the private config repo
+      await fetch('https://api.github.com/user/repos', {
+        method: 'POST',
+        headers: getConfigHeaders(),
+        body: JSON.stringify({
+          name: CONFIG_REPO,
+          description: 'Push app config — do not delete',
+          private: true,
+          auto_init: true
+        })
+      });
+      // Wait for GitHub to initialise
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  } catch (e) { /* silent */ }
+}
+
+async function syncConfigToGitHub() {
+  if (!token || !globalUsername) return;
+  try {
+    const config = {
+      username: globalUsername,
+      apps: apps,
+      syncedAt: new Date().toISOString()
+    };
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(config, null, 2))));
+
+    // Get existing file SHA if it exists
+    let sha;
+    try {
+      const existing = await fetch(
+        `https://api.github.com/repos/${globalUsername}/${CONFIG_REPO}/contents/${CONFIG_FILE}`,
+        { headers: getConfigHeaders() }
+      );
+      if (existing.ok) {
+        const data = await existing.json();
+        sha = data.sha;
+      }
+    } catch (e) { /* file doesn't exist yet */ }
+
+    // Push config file
+    await fetch(
+      `https://api.github.com/repos/${globalUsername}/${CONFIG_REPO}/contents/${CONFIG_FILE}`,
+      {
+        method: 'PUT',
+        headers: getConfigHeaders(),
+        body: JSON.stringify({
+          message: 'Push config sync',
+          content,
+          ...(sha ? { sha } : {})
+        })
+      }
+    );
+  } catch (e) { /* silent fail */ }
+}
+
+async function restoreConfigFromGitHub() {
+  if (!token || !globalUsername) return false;
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${globalUsername}/${CONFIG_REPO}/contents/${CONFIG_FILE}`,
+      { headers: getConfigHeaders() }
+    );
+    if (!res.ok) return false;
+    const data = await res.json();
+    const decoded = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
+    const config = JSON.parse(decoded);
+
+    // Schema validation — reject malformed config
+    if (typeof config !== 'object' || config === null) return false;
+    if (config.apps && !Array.isArray(config.apps)) return false;
+    if (config.username && typeof config.username !== 'string') return false;
+    if (config.username && config.username.length > 39) return false;
+
+    // Validate each app entry
+    if (config.apps) {
+      config.apps = config.apps.filter(app =>
+        app &&
+        typeof app === 'object' &&
+        typeof app.name === 'string' &&
+        typeof app.repo === 'string' &&
+        app.name.length <= 50 &&
+        app.repo.length <= 100
+      );
+    }
+
+    if (config.apps && Array.isArray(config.apps)) {
+      apps = config.apps;
+      store.set('push_apps', apps);
+    }
+    if (config.username) {
+      globalUsername = config.username;
+      store.set('push_username', globalUsername);
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// ── Traffic Stats ──
+async function fetchTrafficStats(username, repo) {
+  document.getElementById('statViews').textContent = '—';
+  document.getElementById('statUniques').textContent = '—';
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${username}/${repo}/traffic/views`,
+      {
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      document.getElementById('statViews').textContent = data.count ?? '0';
+      document.getElementById('statUniques').textContent = data.uniques ?? '0';
+    } else {
+      document.getElementById('statViews').textContent = 'n/a';
+      document.getElementById('statUniques').textContent = 'n/a';
+    }
+  } catch (e) {
+    document.getElementById('statViews').textContent = 'n/a';
+    document.getElementById('statUniques').textContent = 'n/a';
+  }
+}
+
+// ── Security Scanner ──
+
+// SVG icons matching app aesthetic
+const secIcons = {
+  critical: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#ff4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+  warning: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="10" stroke="#ffaa00" stroke-width="1.5"/>
+    <path d="M12 8v4M12 16h.01" stroke="#ffaa00" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>`,
+  info: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="10" stroke="#4488ff" stroke-width="1.5"/>
+    <path d="M12 16v-4M12 8h.01" stroke="#4488ff" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>`,
+  clean: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="#00c969" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M22 4L12 14.01l-3-3" stroke="#00c969" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`
+};
+
+const SECURITY_RULES = [
+  // Critical — hardcoded secrets
+  { level: 'critical', title: 'Hardcoded GitHub token', pattern: /ghp_[a-zA-Z0-9]{36}/g, detail: 'GitHub Personal Access Token found in code', confidence: 95 },
+  { level: 'critical', title: 'Hardcoded GitHub PAT', pattern: /github_pat_[a-zA-Z0-9_]{82}/g, detail: 'GitHub fine-grained token found in code', confidence: 99 },
+  { level: 'critical', title: 'Hardcoded OpenAI key', pattern: /sk-[a-zA-Z0-9]{48}/g, detail: 'OpenAI API key found in code', confidence: 90 },
+  { level: 'critical', title: 'Hardcoded Anthropic key', pattern: /sk-ant-[a-zA-Z0-9\-_]{93}/g, detail: 'Anthropic API key found in code', confidence: 99 },
+  { level: 'critical', title: 'Hardcoded AWS key', pattern: /AKIA[0-9A-Z]{16}/g, detail: 'AWS Access Key ID found in code', confidence: 95 },
+  { level: 'critical', title: 'Hardcoded Google API key', pattern: /AIza[0-9A-Za-z\-_]{35}/g, detail: 'Google API key found in code', confidence: 90 },
+  { level: 'critical', title: 'Stripe live secret key', pattern: /sk_live_[a-zA-Z0-9]{24,}/g, detail: 'Stripe live secret key found — exposes payment processing', confidence: 99 },
+  { level: 'critical', title: 'Stripe live public key', pattern: /pk_live_[a-zA-Z0-9]{24,}/g, detail: 'Stripe live publishable key found in code', confidence: 95 },
+  { level: 'critical', title: 'JWT token detected', pattern: /eyJ[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+/g, detail: 'JSON Web Token (JWT) hardcoded in source', confidence: 85 },
+  { level: 'critical', title: 'SSH private key', pattern: /-----BEGIN\s+(?:RSA|EC|DSA|OPENSSH|ED25519)\s+PRIVATE KEY-----/g, detail: 'SSH private key found in code', confidence: 99 },
+  { level: 'critical', title: 'SSH key file reference', pattern: /[\/~]\.ssh\/id_(?:rsa|ed25519|ecdsa|dsa)/g, detail: 'Reference to SSH key file found', confidence: 80 },
+  { level: 'critical', title: 'Slack bot token', pattern: /xoxb-[0-9]{10,}-[0-9]{10,}-[a-zA-Z0-9]{24}/g, detail: 'Slack bot token found in code', confidence: 99 },
+  { level: 'critical', title: 'Slack user token', pattern: /xoxp-[0-9]{10,}-[0-9]{10,}-[a-zA-Z0-9]{24}/g, detail: 'Slack user OAuth token found in code', confidence: 99 },
+  { level: 'critical', title: 'Hardcoded secret', pattern: /(?:secret|password|passwd|pwd)\s*[:=]\s*["'][^"']{8,}["']/gi, detail: 'Hardcoded secret or password found', confidence: 75 },
+  { level: 'critical', title: 'Bearer token in code', pattern: /Bearer\s+[a-zA-Z0-9\-._~+/]{20,}/g, detail: 'Bearer token hardcoded in source', confidence: 80 },
+  { level: 'critical', title: 'Private key detected', pattern: /-----BEGIN\s+(?:RSA\s+)?PRIVATE KEY-----/g, detail: 'Private key found in code', confidence: 99 },
+  { level: 'critical', title: 'Firebase API key', pattern: /AIzaSy[a-zA-Z0-9\-_]{33}/g, detail: 'Firebase API key found — check Firebase security rules', confidence: 90 },
+
+  // Warning — potential issues
+  { level: 'warning', title: '.env variable in frontend', pattern: /process\.env\.[A-Z_]+/g, detail: 'process.env reference found — env vars are not available in browser', confidence: 85 },
+  { level: 'warning', title: 'dotenv import detected', pattern: /require\s*\(\s*['"]dotenv['"]\s*\)|import.*dotenv/g, detail: 'dotenv imported in frontend code — will not work in browser', confidence: 90 },
+  { level: 'warning', title: 'Insecure HTTP connection', pattern: /fetch\s*\(\s*["']http:\/\//g, detail: 'Using HTTP instead of HTTPS in fetch call', confidence: 90 },
+  { level: 'warning', title: 'eval() usage', pattern: /\beval\s*\(/g, detail: 'eval() can execute arbitrary code', confidence: 80 },
+  { level: 'warning', title: 'document.write() usage', pattern: /document\.write\s*\(/g, detail: 'document.write() is a security risk', confidence: 85 },
+  { level: 'warning', title: 'innerHTML with variable', pattern: /\.innerHTML\s*=\s*(?!["'`]<)/g, detail: 'innerHTML assignment with variable — XSS risk if unsanitised', confidence: 70 },
+  { level: 'warning', title: 'Hardcoded IP address', pattern: /https?:\/\/(?:\d{1,3}\.){3}\d{1,3}/g, detail: 'Hardcoded IP address in network call', confidence: 75 },
+  { level: 'warning', title: 'localStorage with sensitive key', pattern: /localStorage\.setItem\s*\(\s*["'](?:token|secret|password|key|auth)/gi, detail: 'Sensitive data stored in localStorage', confidence: 80 },
+
+  // Info — best practice
+  { level: 'info', title: 'External script without SRI', pattern: /<script\s+src=["'][^"']+["'](?![^>]*integrity)[^>]*>/g, detail: 'External script loaded without integrity check', confidence: 85 },
+  { level: 'info', title: 'console.log in production', pattern: /console\.log\s*\(/g, detail: 'Debug logs found — consider removing before deploy', confidence: 90 },
+  { level: 'info', title: 'TODO or FIXME comment', pattern: /\/\/\s*(?:TODO|FIXME|HACK|XXX)/gi, detail: 'Unresolved code comment found', confidence: 95 },
+  { level: 'info', title: 'Hardcoded localhost', pattern: /localhost:\d+/g, detail: 'Localhost URL found — may not work in production', confidence: 90 },
+
+  // Personal data
+  { level: 'warning', title: 'Email address in code', pattern: /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, detail: 'Email address found — may expose personal contact details', confidence: 80 },
+  { level: 'warning', title: 'Phone number in code', pattern: /(?:\+?\d{1,3}[\s\-.]?)?\(?\d{3}\)?[\s\-.]?\d{3}[\s\-.]?\d{4}/g, detail: 'Phone number found — may expose personal contact details', confidence: 70 },
+  { level: 'warning', title: 'Hardcoded name or address', pattern: /(?:fullName|full_name|firstName|first_name|lastName|last_name|streetAddress|street_address|homeAddress|home_address)\s*[:=]\s*["'][^"']{3,}["']/gi, detail: 'Personal name or address found hardcoded in code', confidence: 75 },
+  { level: 'info', title: 'IP address in code', pattern: /\b(?:192\.168|10\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b/g, detail: 'Private IP address found — may expose network details', confidence: 80 },
+];
+
+function scanFiles(files) {
+  const findings = [];
+
+  for (const file of files) {
+    const isTextFile = /\.(html|htm|js|css|json|ts|jsx|tsx|vue|svelte|md|txt|xml|svg)$/i.test(file.path);
+    if (!isTextFile) continue;
+
+    let content;
+    try {
+      content = atob(file.content);
+    } catch (e) { continue; }
+
+    // Strip known third-party library blocks before scanning
+    // Remove content between <script src="...cdnjs..."> loaded inline or JSZip signatures
+    let userCode = content
+      // Remove JSZip library block (identified by its signature)
+      .replace(/\bfunction\s+JSZip[\s\S]{100,50000}?(?=\n<\/script>|\nfunction\s+[A-Z]|\n\/\/\s)/g, '/* [library removed] */')
+      // Remove minified single lines over 300 chars (library code)
+      .split('\n').map(l => l.length > 300 ? '/* [minified line removed] */' : l).join('\n')
+      // Remove block comments
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      // Remove line comments
+      .replace(/\/\/.*/g, '');
+
+    for (const rule of SECURITY_RULES) {
+      const scanTarget = rule.level === 'critical' ? content : userCode;
+      let matches;
+
+      if (rule.title === 'innerHTML with variable') {
+        // Only flag innerHTML NOT followed by sanitise()
+        const unsanitised = [];
+        const regex = /\.innerHTML\s*=/g;
+        let m;
+        while ((m = regex.exec(userCode)) !== null) {
+          const after = userCode.slice(m.index + m[0].length, m.index + m[0].length + 80);
+          const before = userCode.slice(Math.max(0, m.index - 20), m.index);
+          // Skip if assigned a static string or sanitise() wraps it
+          if (after.trim().startsWith('"') || after.trim().startsWith("'") || after.trim().startsWith('`<')) continue;
+          if (after.includes('sanitise(')) continue;
+          if (before.includes('textContent')) continue;
+          unsanitised.push(m[0]);
+        }
+        if (!unsanitised.length) continue;
+        matches = unsanitised;
+
+      } else if (rule.title === 'Email address in code') {
+        const ignoredDomains = ['example.com', 'test.com', 'placeholder.com', 'yourdomain.com', 'domain.com', 'email.com', 'google.com', 'github.com', 'githubusercontent.com'];
+        matches = (userCode.match(rule.pattern) || []).filter(m =>
+          !ignoredDomains.some(d => m.toLowerCase().endsWith(d)) &&
+          !m.includes('example') &&
+          !m.includes('placeholder') &&
+          !m.startsWith('test@') &&
+          !m.startsWith('user@')
+        );
+        if (!matches.length) continue;
+
+      } else if (rule.title === 'Phone number in code') {
+        matches = (userCode.match(rule.pattern) || []).filter(m => m.replace(/\D/g, '').length >= 10);
+        if (!matches.length) continue;
+
+      } else if (rule.title === 'External script without SRI') {
+        const trustedSrcs = ['cdnjs.cloudflare.com', 'cdn.counter.dev', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+        const allMatches = content.match(rule.pattern) || [];
+        matches = allMatches.filter(m => !trustedSrcs.some(cdn => m.includes(cdn)));
+        if (!matches.length) continue;
+
+      } else {
+        matches = scanTarget.match(rule.pattern);
+        if (!matches) continue;
+      }
+
+      const sample = matches[0].length > 40
+        ? matches[0].slice(0, 20) + '...' + matches[0].slice(-8)
+        : matches[0];
+
+      findings.push({
+        level: rule.level,
+        title: rule.title,
+        detail: rule.detail,
+        sample: rule.level === 'critical' ? '(redacted for safety)' : sample,
+        file: file.path,
+        count: matches.length
+      });
+    }
+  }
+
+  const order = { critical: 0, warning: 1, info: 2 };
+  return findings.sort((a, b) => order[a.level] - order[b.level]);
+}
+
+function calculateReadiness(findings) {
+  if (findings.length === 0) return { score: 100, label: '✓ Ready to deploy', risk: 'clean' };
+
+  const critical = findings.filter(f => f.level === 'critical').length;
+  const warning = findings.filter(f => f.level === 'warning').length;
+  const info = findings.filter(f => f.level === 'info').length;
+
+  let score = 100;
+  score -= critical * 30;
+  score -= warning * 8;
+  score -= info * 2;
+  score = Math.max(0, Math.min(100, score));
+
+  let label, risk;
+  if (critical > 0) {
+    label = '🔴 High Risk — Fix critical issues before deploying';
+    risk = 'high';
+  } else if (score >= 70) {
+    label = '🟡 Medium Risk — Safe to deploy with caution';
+    risk = 'medium';
+  } else {
+    label = '🟢 Low Risk — Good to deploy';
+    risk = 'low';
+  }
+
+  return { score, label, risk };
+}
+
+function renderSecuritySheet(findings) {
+  const critical = findings.filter(f => f.level === 'critical').length;
+  const warning = findings.filter(f => f.level === 'warning').length;
+  const info = findings.filter(f => f.level === 'info').length;
+  const { score, label, risk } = calculateReadiness(findings);
+
+  // Title
+  document.getElementById('securitySheetTitle').textContent = 'Security Scan';
+
+  // Readiness score card
+  document.getElementById('readinessScore').textContent = findings.length === 0 ? '100%' : `${score}%`;
+  document.getElementById('readinessLabel').textContent = label;
+  const bar = document.getElementById('readinessBarFill');
+  bar.style.width = `${score}%`;
+  bar.className = 'readiness-bar-fill';
+  if (risk === 'high') bar.classList.add('high');
+  else if (risk === 'medium') bar.classList.add('medium');
+
+  // Issue summary button
+  const summaryBtn = document.getElementById('issueSummaryBtn');
+  const findingsList = document.getElementById('securityFindings');
+  let findingsOpen = false;
+
+  if (findings.length === 0) {
+    summaryBtn.style.display = 'none';
+    findingsList.style.display = 'none';
+  } else {
+    summaryBtn.style.display = 'flex';
+
+    const counts = document.getElementById('issueCounts');
+    counts.innerHTML = [
+      critical > 0 ? `<span class="issue-count-item critical">${secIcons.critical} ${critical} Critical</span>` : '',
+      warning > 0 ? `<span class="issue-count-item warning">${secIcons.warning} ${warning} Warning</span>` : '',
+      info > 0 ? `<span class="issue-count-item info">${secIcons.info} ${info} Info</span>` : ''
+    ].join('');
+
+    // Build findings list
+    findingsList.innerHTML = findings.map(f => `
+      <div class="security-finding ${f.level}">
+        <div class="security-finding-icon">${secIcons[f.level]}</div>
+        <div class="security-finding-body">
+          <div class="security-finding-title">${sanitise(f.title)}${f.confidence ? ` <span style="font-family:'DM Mono',monospace;font-size:9px;opacity:0.5;font-weight:300">${f.confidence}% confidence</span>` : ''}</div>
+          <div class="security-finding-detail">${sanitise(f.detail)}</div>
+          <div class="security-finding-file">${sanitise(f.file)}${f.count > 1 ? ` · ${f.count} occurrences` : ''}</div>
+        </div>
+      </div>
+    `).join('');
+
+    // Toggle findings on tap
+    summaryBtn.onclick = () => {
+      findingsOpen = !findingsOpen;
+      findingsList.style.display = findingsOpen ? 'flex' : 'none';
+      document.getElementById('issueSummaryChevron').style.transform = findingsOpen ? 'rotate(180deg)' : '';
+    };
+  }
+
+  // Copy report button
+  const copyBtn = document.getElementById('copyReportBtn');
+  if (findings.length > 0) {
+    copyBtn.style.display = 'flex';
+    copyBtn.querySelector('span').textContent = 'Copy report to fix with AI';
+    copyBtn.onclick = () => {
+      const app = apps.find(a => a.id === currentAppId);
+      const lines = [
+        `Push Security Scan Report`,
+        `App: ${app ? app.name : 'Unknown'}`,
+        `Scanned: ${new Date().toLocaleString()}`,
+        `Deploy Readiness: ${score}% — ${label}`,
+        ``
+      ];
+
+      if (critical > 0) {
+        lines.push(`🔴 CRITICAL (${critical})`);
+        findings.filter(f => f.level === 'critical').forEach(f => {
+          lines.push(`• ${f.title}${f.confidence ? ` (${f.confidence}% confidence)` : ''}`);
+          lines.push(`  File: ${f.file}`);
+          lines.push(`  Detail: ${f.detail}`);
+          if (f.count > 1) lines.push(`  Occurrences: ${f.count}`);
+          lines.push(``);
+        });
+      }
+      if (warning > 0) {
+        lines.push(`🟡 WARNING (${warning})`);
+        findings.filter(f => f.level === 'warning').forEach(f => {
+          lines.push(`• ${f.title}${f.confidence ? ` (${f.confidence}% confidence)` : ''}`);
+          lines.push(`  File: ${f.file}`);
+          lines.push(`  Detail: ${f.detail}`);
+          if (f.count > 1) lines.push(`  Occurrences: ${f.count}`);
+          lines.push(``);
+        });
+      }
+      if (info > 0) {
+        lines.push(`🔵 INFO (${info})`);
+        findings.filter(f => f.level === 'info').forEach(f => {
+          lines.push(`• ${f.title}`);
+          lines.push(`  File: ${f.file}`);
+          lines.push(`  Detail: ${f.detail}`);
+          if (f.count > 1) lines.push(`  Occurrences: ${f.count}`);
+          lines.push(``);
+        });
+      }
+      lines.push(`Please review and fix the above issues before deploying.`);
+      navigator.clipboard.writeText(lines.join('\n')).then(() => {
+        showToast('Report copied — paste into Claude to fix');
+      });
+    };
+  } else {
+    copyBtn.style.display = 'none';
+  }
+
+  // Continue button — hide if critical
+  const continueBtn = document.getElementById('securityContinue');
+  const cancelBtn = document.getElementById('securityCancel');
+  if (critical > 0) {
+    continueBtn.style.display = 'none';
+    cancelBtn.textContent = 'Go Back & Fix';
+  } else {
+    continueBtn.style.display = 'block';
+    cancelBtn.textContent = 'Cancel';
+  }
+}
+
+async function runSecurityScan(files) {
+  const findings = scanFiles(files);
+  const critical = findings.filter(f => f.level === 'critical').length;
+
+  // If clean, skip the sheet entirely
+  if (findings.length === 0) return true;
+
+  // Show security sheet
+  renderSecuritySheet(findings);
+  document.getElementById('securitySheet').classList.add('open');
+
+  // Wait for user decision
+  return new Promise((resolve) => {
+    document.getElementById('securityContinue').onclick = () => {
+      document.getElementById('securitySheet').classList.remove('open');
+      resolve(true);
+    };
+    document.getElementById('securityCancel').onclick = () => {
+      document.getElementById('securitySheet').classList.remove('open');
+      resolve(false);
+    };
+  });
+}
+
+// ── Scan Live App ──
+async function scanLiveApp(app) {
+  const btn = document.getElementById('scanLiveBtn');
+  btn.classList.add('scanning');
+  showToast('Scanning live app…');
+
+  try {
+    const branch = app.branch || 'main';
+
+    // Step 1: Get the latest commit SHA for the branch
+    const refRes = await fetch(
+      `https://api.github.com/repos/${app.username}/${app.repo}/git/ref/heads/${branch}`,
+      { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
+    );
+    if (!refRes.ok) throw new Error(`Branch not found: ${branch}`);
+    const refData = await refRes.json();
+    const commitSha = refData.object.sha;
+
+    // Step 2: Get the tree for that commit
+    const treeRes = await fetch(
+      `https://api.github.com/repos/${app.username}/${app.repo}/git/trees/${commitSha}`,
+      { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
+    );
+    if (!treeRes.ok) throw new Error('Could not read repo tree');
+    const treeData = await treeRes.json();
+
+    // Step 3: Find index.html blob SHA
+    const indexFile = treeData.tree.find(f => f.path === 'index.html');
+    if (!indexFile) {
+      btn.classList.remove('scanning');
+      showToast('No index.html found — skipping scan');
+      return;
+    }
+
+    // Step 4: Fetch the blob content
+    const blobRes = await fetch(
+      `https://api.github.com/repos/${app.username}/${app.repo}/git/blobs/${indexFile.sha}`,
+      { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
+    );
+    if (!blobRes.ok) throw new Error('Could not fetch file content');
+    const blobData = await blobRes.json();
+
+    btn.classList.remove('scanning');
+    const html = decodeURIComponent(escape(atob(blobData.content.replace(/\n/g, ''))));
+    processScanResult(html, app);
+
+  } catch (e) {
+    document.getElementById('scanLiveBtn').classList.remove('scanning');
+    const errText = `Scan error: ${e.message || 'unknown'}\nApp: ${app.name}`;
+    showSecurityError('Scan Error', e.message || 'Unknown error', errText);
+  }
+}
+
+function showSecurityError(title, detail, copyText) {
+  document.getElementById('scanLiveBtn').classList.remove('scanning');
+  document.getElementById('securitySheetTitle').textContent = title;
+  document.getElementById('securitySummary').innerHTML = `<div class="security-badge critical">${secIcons.critical} Error</div>`;
+  document.getElementById('securityFindings').innerHTML = `
+    <div class="security-finding critical">
+      <div class="security-finding-icon">${secIcons.critical}</div>
+      <div class="security-finding-body">
+        <div class="security-finding-title">Could not complete scan</div>
+        <div class="security-finding-detail">${sanitise(detail)}</div>
+      </div>
+    </div>`;
+  const copyBtn = document.getElementById('copyReportBtn');
+  copyBtn.style.display = 'flex';
+  copyBtn.querySelector('span').textContent = 'Copy error details';
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(copyText).then(() => showToast('Error copied'));
+  };
+  document.getElementById('securityContinue').style.display = 'none';
+  document.getElementById('securityCancel').textContent = 'Close';
+  document.getElementById('securitySheet').classList.add('open');
+  document.getElementById('securityCancel').onclick = () => {
+    document.getElementById('securitySheet').classList.remove('open');
+    document.getElementById('securityCancel').textContent = 'Cancel';
+    copyBtn.querySelector('span').textContent = 'Copy report to fix with AI';
+  };
+}
+
+function processScanResult(html, app) {
+  const b64 = btoa(unescape(encodeURIComponent(html)));
+  const files = [{ path: 'index.html', content: b64 }];
+  const findings = scanFiles(files);
+  renderSecuritySheet(findings);
+
+  document.getElementById('securitySheetTitle').textContent = 'Security Scan — Live App';
+  document.getElementById('securityContinue').style.display = 'none';
+  document.getElementById('securityCancel').textContent = 'Close';
+  document.getElementById('securitySheet').classList.add('open');
+
+  document.getElementById('securityCancel').onclick = () => {
+    document.getElementById('securitySheet').classList.remove('open');
+    document.getElementById('securityCancel').textContent = 'Cancel';
+  };
+}
+
+// ── Cloudflare Workers Deploy via GitHub Actions ──
+// ── Notifications ──
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied') return false;
+  const result = await Notification.requestPermission();
+  return result === 'granted';
+}
+
+async function pollUntilLive(username, repo, commitSha, appName, appId, maxAttempts = 20) {
+  const granted = await requestNotificationPermission();
+  let attempts = 0;
+  const headers = {
+    'Authorization': `token ${token}`,
+    'Accept': 'application/vnd.github.v3+json'
+  };
+
+  async function checkBuild() {
+    attempts++;
+    try {
+      const pagesRes = await fetch(
+        `https://api.github.com/repos/${username}/${repo}/pages/builds/latest`,
+        { headers }
+      );
+      if (pagesRes.ok) {
+        const build = await pagesRes.json();
+        if (build.status === 'built') {
+          clearInterval(interval);
+          markHistoryLive(appId, 'live');
+          if (granted) new Notification('Push — Deploy Complete', { body: `${appName} deployed successfully` });
+          return true;
+        }
+        if (build.status === 'errored') {
+          clearInterval(interval);
+          markHistoryLive(appId, 'failed');
+          if (granted) new Notification('Push — Deploy Failed', { body: `${appName} failed to deploy` });
+          return true;
+        }
+      } else if (attempts >= 6) {
+        clearInterval(interval);
+        markHistoryLive(appId, 'live');
+        if (granted) new Notification('Push — Deploy Complete', { body: `${appName} deployed successfully` });
+        return true;
+      }
+    } catch (e) {
+      if (attempts >= 6) {
+        clearInterval(interval);
+        markHistoryLive(appId, 'live');
+        return true;
+      }
+    }
+    if (attempts >= maxAttempts) {
+      clearInterval(interval);
+      markHistoryLive(appId, 'live');
+      return true;
+    }
+    return false;
+  }
+
+  // Check immediately first
+  const done = await checkBuild();
+  if (done) return;
+
+  // Then poll every 20s
+  const interval = setInterval(checkBuild, 20000);
+}
+
+// ── Open deploy view ──
+function openDeploy(id) {
+  const app = apps.find(a => a.id === id);
+  if (!app) return;
+  currentAppId = id;
+  selectedFile = null;
+  addToRecent(id);
+
+  // Clear search
+  document.getElementById('searchInput').value = '';
+  searchQuery = '';
+  document.getElementById('searchClear').style.display = 'none';
+  document.getElementById('searchResults').style.display = 'none';
+  document.getElementById('homeContent').style.display = 'block';
+
+  document.getElementById('deployHeaderTitle').textContent = app.name;
+  document.getElementById('deployAppName').textContent = app.name;
+  document.getElementById('deployAppRepo').textContent = `${sanitise(app.username)}/${sanitise(app.repo)} · ${app.branch || 'main'}`;
+
+  const liveUrl = `https://${sanitise(app.username)}.github.io/${sanitise(app.repo)}/`;
+  document.getElementById('liveUrlBar').textContent = liveUrl;
+  document.getElementById('liveUrlBar').href = liveUrl;
+
+  // Reset file state
+  selectedFile = null;
+  document.getElementById('filePill').classList.remove('visible');
+  document.getElementById('dropZone').classList.remove('has-file');
+  document.getElementById('deployBtn').disabled = true;
+  document.getElementById('dropTitle').textContent = 'Select ZIP or HTML file';
+
+  // Share button
+  document.getElementById('shareBtn').onclick = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: app.name, url: liveUrl });
+      } catch (e) { /* cancelled */ }
+    } else {
+      navigator.clipboard.writeText(liveUrl).then(() => showToast('URL copied'));
+    }
+  };
+
+  // Scan live app button
+  document.getElementById('scanLiveBtn').onclick = () => scanLiveApp(app);
+
+  // Fetch traffic stats
+  fetchTrafficStats(app.username, app.repo);
+  document.getElementById('deployBtn').disabled = true;
+  document.getElementById('filePill').classList.remove('visible');
+  document.getElementById('dropZone').classList.remove('has-file');
+  document.getElementById('progressWrap').classList.remove('visible');
+  document.getElementById('resultWrap').classList.remove('visible');
+  resetSteps();
+  renderDeployHistory(id);
+
+  // If latest history entry is still pending, check its status immediately
+  const histKey = `push_history_${id}`;
+  const hist = store.get(histKey) || [];
+  if (hist.length > 0 && !hist[0].status) {
+    const pendingApp = apps.find(a => a.id === id);
+    if (pendingApp) {
+      pollUntilLive(pendingApp.username, pendingApp.repo, null, pendingApp.name, id);
+    }
+  }
+
+  showView('deployView');
+}
+
+// ── Steps ──
+function resetSteps() {
+  ['ps1','ps2','ps3','ps4'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'progress-step';
+    const ind = el.querySelector('.step-indicator');
+    if (ind) ind.textContent = i + 1;
+  });
+}
+
+function setStep(n, state) {
+  const el = document.getElementById('ps' + n);
+  if (!el) return;
+  el.className = 'progress-step ' + state;
+  const ind = el.querySelector('.step-indicator');
+  if (!ind) return;
+  if (state === 'done') ind.textContent = '✓';
+  else if (state === 'err') ind.textContent = '✕';
+  else ind.textContent = n;
+}
+
+// ── File handling ──
+document.getElementById('dropZone').addEventListener('click', () => {
+  document.getElementById('fileInput').click();
+});
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+document.getElementById('dropZone').addEventListener('dragover', (e) => {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.add('drag-over');
+});
+
+document.getElementById('dropZone').addEventListener('dragleave', () => {
+  document.getElementById('dropZone').classList.remove('drag-over');
+});
+
+document.getElementById('dropZone').addEventListener('drop', (e) => {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+function handleFile(file) {
+  const isZip = file.name.endsWith('.zip');
+  const isHtml = file.name.endsWith('.html') || file.name.endsWith('.htm');
+  if (!isZip && !isHtml) { showToast('Please select a ZIP or HTML file'); return; }
+  selectedFile = file;
+  document.getElementById('filePillName').textContent = file.name;
+  document.getElementById('filePill').classList.add('visible');
+  document.getElementById('dropZone').classList.add('has-file');
+  document.getElementById('deployBtn').disabled = false;
+  document.getElementById('progressWrap').classList.remove('visible');
+  document.getElementById('resultWrap').classList.remove('visible');
+  resetSteps();
+}
+
+document.getElementById('filePillClear').addEventListener('click', () => {
+  selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('filePill').classList.remove('visible');
+  document.getElementById('dropZone').classList.remove('has-file');
+  document.getElementById('deployBtn').disabled = true;
+});
+
+// ── App Icon Fetch ──
+const iconCache = {};
+
+async function fetchAppIcon(app) {
+  const cacheKey = `push_icon_${app.id}`;
+
+  // Check memory cache first
+  if (iconCache[app.id]) return iconCache[app.id];
+
+  // Check localStorage cache
+  const cached = store.get(cacheKey);
+  if (cached) {
+    iconCache[app.id] = cached;
+    return cached;
+  }
+
+  if (!token || !globalUsername) return null;
+
+  try {
+    // Fetch index.html via GitHub API
+    const branch = app.branch || 'main';
+    const res = await fetch(
+      `https://api.github.com/repos/${app.username}/${app.repo}/contents/index.html?ref=${branch}`,
+      { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
+    );
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const html = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
+
+    // Parse for favicon links — try apple-touch-icon first (larger)
+    const iconPatterns = [
+      /<link[^>]+rel=["']apple-touch-icon["'][^>]+href=["']([^"']+)["']/i,
+      /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']apple-touch-icon["']/i,
+      /<link[^>]+rel=["'](?:shortcut )?icon["'][^>]+href=["']([^"']+)["']/i,
+      /<link[^>]+href=["']([^"']+)["'][^>]+rel=["'](?:shortcut )?icon["']/i,
+    ];
+
+    let iconUrl = null;
+    for (const pattern of iconPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        iconUrl = match[1];
+        // Decode URL-encoded data URIs
+        if (iconUrl.startsWith('data:') || iconUrl.includes('%3C') || iconUrl.includes('%3c')) {
+          try { iconUrl = decodeURIComponent(iconUrl); } catch (e) {}
+        }
+        break;
+      }
+    }
+
+    if (!iconUrl) return null;
+
+    // Resolve relative URLs to absolute GitHub Pages URL
+    if (iconUrl.startsWith('data:')) {
+      // Data URI — use directly
+    } else if (iconUrl.startsWith('http')) {
+      // Already absolute
+    } else {
+      iconUrl = `https://${app.username}.github.io/${app.repo}/${iconUrl.replace(/^\//, '')}`;
+    }
+
+    // Cache it
+    iconCache[app.id] = iconUrl;
+    store.set(cacheKey, iconUrl);
+    return iconUrl;
+
+  } catch (e) {
+    return null;
+  }
+}
+
+function renderIconHTML(app, size = 'grid') {
+  const cached = iconCache[app.id] || store.get(`push_icon_${app.id}`);
+  const sizeClass = size === 'grid' ? 'app-grid-emoji' : size === 'fav' ? 'fav-card-emoji' : 'recent-emoji';
+
+  if (cached) {
+    const escapedEmoji = app.emoji.replace(/'/g, "\\'");
+    return `<div class="${sizeClass}" style="overflow:hidden;padding:0;display:flex;align-items:center;justify-content:center">
+      <img src="${cached}" style="width:100%;height:100%;object-fit:cover;border-radius:10px"
+        onerror="this.parentNode.outerHTML='<span class=\\'${sizeClass}\\'>${escapedEmoji}</span>'">
+    </div>`;
+  }
+  return `<span class="${sizeClass}">${app.emoji}</span>`;
+}
+
+async function loadIconsForApps() {
+  if (!token || !globalUsername) return;
+  // Load icons for all apps in background
+  for (const app of apps) {
+    if (!iconCache[app.id] && !store.get(`push_icon_${app.id}`)) {
+      await fetchAppIcon(app);
+    } else if (!iconCache[app.id]) {
+      iconCache[app.id] = store.get(`push_icon_${app.id}`);
+    }
+  }
+  // Re-render once icons are loaded
+  renderApps();
+}
+
+// ── Deploy History ──
+function saveDeployHistory(appId, message, details = {}) {
+  const key = `push_history_${appId}`;
+  let history = store.get(key) || [];
+  const version = history.length + 1;
+  history.unshift({ message, time: Date.now(), live: false, version, ...details });
+  history = history.slice(0, 10);
+  store.set(key, history);
+}
+
+function markHistoryLive(appId, status = 'live') {
+  const key = `push_history_${appId}`;
+  let history = store.get(key) || [];
+  if (history.length > 0) {
+    history[0].status = status;
+    store.set(key, history);
+  }
+  if (currentAppId === appId) renderDeployHistory(appId);
+}
+
+const liveSVG = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+  <circle cx="7" cy="7" r="6" stroke="#ffffff" stroke-width="1.5" opacity="0.3"/>
+  <path d="M4 7l2 2 4-4" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+
+const failedSVG = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+  <circle cx="7" cy="7" r="6" stroke="#ff4444" stroke-width="1.5" opacity="0.5"/>
+  <path d="M5 5l4 4M9 5l-4 4" stroke="#ff4444" stroke-width="1.5" stroke-linecap="round"/>
+</svg>`;
+
+const pendingHTML = `<div class="history-status-pending"></div>`;
+
+const dashSVG = `<svg width="10" height="2" viewBox="0 0 10 2" fill="none">
+  <path d="M1 1h8" stroke="#444" stroke-width="1.5" stroke-linecap="round"/>
+</svg>`;
+
+function renderDeployHistory(appId) {
+  const key = `push_history_${appId}`;
+  const history = store.get(key) || [];
+  const section = document.getElementById('deployHistory');
+  const list = document.getElementById('historyList');
+
+  if (!history.length) { section.style.display = 'none'; return; }
+
+  section.style.display = 'block';
+  list.innerHTML = history.map((entry, index) => {
+    let statusHTML;
+    if (entry.status === 'live') statusHTML = `<div class="history-status-live">${liveSVG}</div>`;
+    else if (entry.status === 'failed') statusHTML = `<div class="history-status-live">${failedSVG}</div>`;
+    else if (index === 0 && !entry.status) statusHTML = pendingHTML;
+    else statusHTML = `<div class="history-status-live">${dashSVG}</div>`;
+
+    const fullDate = entry.fullTime
+      ? new Date(entry.fullTime).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+      : new Date(entry.time).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+
+    const expandedHTML = (entry.branch || entry.commitUrl) ? `
+      <div class="history-expanded" id="expand-${entry.time}">
+        ${entry.version ? `
+        <div class="history-detail-row">
+          <span class="history-detail-label">Version</span>
+          <span class="history-detail-value">v${entry.version}</span>
+        </div>` : ''}
+        ${entry.zipName ? `
+        <div class="history-detail-row">
+          <span class="history-detail-label">File</span>
+          <span class="history-detail-value">${entry.zipName}</span>
+        </div>` : ''}
+        ${entry.branch ? `
+        <div class="history-detail-row">
+          <span class="history-detail-label">Branch</span>
+          <span class="history-detail-value">${entry.branch}</span>
+        </div>` : ''}
+        <div class="history-detail-row">
+          <span class="history-detail-label">Date</span>
+          <span class="history-detail-value">${fullDate}</span>
+        </div>
+        ${entry.commitSha ? `
+        <div class="history-detail-row">
+          <span class="history-detail-label">Commit</span>
+          <span class="history-detail-value">${entry.commitSha}</span>
+        </div>` : ''}
+        ${entry.commitUrl ? `
+        <a class="history-commit-link" href="${entry.commitUrl}" target="_blank">
+          <span class="history-commit-label">View on GitHub</span>
+          <svg width="11" height="11" viewBox="0 0 15 15" fill="none">
+            <path d="M3 2h9a1 1 0 011 1v9M13 2L2 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:#555"/>
+          </svg>
+        </a>` : ''}
+      </div>` : '';
+
+    return `
+      <div class="history-item" data-expand="expand-${entry.time}">
+        <div class="history-main">
+          <div class="history-status">${statusHTML}</div>
+          <div class="history-info">
+            <div class="history-message">${sanitise(entry.message)}</div>
+            <div class="history-time">${entry.version ? `<span class="history-version">v${entry.version}</span> · ` : ''}${timeAgo(entry.time)}</div>
+          </div>
+          ${entry.branch || entry.commitUrl ? `
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink:0;margin-top:4px;opacity:0.3">
+            <path d="M2 3l3 3 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>` : ''}
+        </div>
+        ${expandedHTML}
+      </div>
+    `;
+  }).join('');
+
+  // Tap to expand
+  list.querySelectorAll('.history-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return; // don't expand if tapping a link
+      const expandId = item.dataset.expand;
+      const expanded = document.getElementById(expandId);
+      if (!expanded) return;
+      const isOpen = expanded.classList.contains('open');
+      // Close all others
+      list.querySelectorAll('.history-expanded').forEach(el => el.classList.remove('open'));
+      if (!isOpen) expanded.classList.add('open');
+    });
+  });
+}
+
+// ── Deploy ──
+let lastDeployTime = 0;
+const DEPLOY_COOLDOWN_MS = 10000; // 10 seconds
+
+document.getElementById('deployBtn').addEventListener('click', deploy);
+
+async function deploy() {
+  // Rate limit — prevent spam
+  const now = Date.now();
+  if (now - lastDeployTime < DEPLOY_COOLDOWN_MS) {
+    const remaining = Math.ceil((DEPLOY_COOLDOWN_MS - (now - lastDeployTime)) / 1000);
+    showToast(`Please wait ${remaining}s before deploying again`);
+    return;
+  }
+  if (!token) { showToast('Missing token'); return; }
+  const app = apps.find(a => a.id === currentAppId);
+  if (!app) return;
+
+  if (!selectedFile) { showToast('Select a file to deploy'); return; }
+
+  // File name mismatch check
+  const zipName = selectedFile.name.replace('.zip', '').replace('.html', '').replace('.htm', '').toLowerCase().replace(/[-_\s]/g, '');
+  const appName = app.name.toLowerCase().replace(/[-_\s]/g, '');
+  const repoName = app.repo.toLowerCase().replace(/[-_\s]/g, '');
+  const genericNames = ['app', 'project', 'build', 'dist', 'output', 'export', 'download'];
+  const isGeneric = genericNames.some(g => zipName === g);
+  const isMatch = zipName.includes(appName) || appName.includes(zipName) ||
+                  zipName.includes(repoName) || repoName.includes(zipName) || isGeneric;
+
+  if (!isMatch) {
+    const msg = `You're deploying "<strong>${sanitise(selectedFile.name)}</strong>" to <strong>${sanitise(app.name)}</strong>. The names don't match — is this the right file?`;
+    document.getElementById('mismatchMsg').innerHTML = msg;
+    document.getElementById('mismatchSheet').classList.add('open');
+
+    const proceed = await new Promise((resolve) => {
+      document.getElementById('mismatchContinue').onclick = () => {
+        document.getElementById('mismatchSheet').classList.remove('open');
+        resolve(true);
+      };
+      document.getElementById('mismatchCancel').onclick = () => {
+        document.getElementById('mismatchSheet').classList.remove('open');
+        resolve(false);
+      };
+    });
+
+    if (!proceed) {
+      document.getElementById('deployBtn').disabled = false;
+      return;
+    }
+  }
+
+  document.getElementById('deployBtn').disabled = true;
+  document.getElementById('progressWrap').classList.add('visible');
+  document.getElementById('resultWrap').classList.remove('visible');
+  resetSteps();
+
+  const branch = app.branch || 'main';
+
+  try {
+    // Step 1: Read file
+    setStep(1, 'active');
+    const files = [];
+    const isZip = selectedFile.name.endsWith('.zip');
+
+    if (isZip && typeof JSZip === 'undefined') {
+        throw new Error('JSZip library not loaded — refresh and try again');
+      }
+
+      if (isZip) {
+      // Unzip and collect files
+      const zip = await JSZip.loadAsync(selectedFile);
+      const promises = [];
+      zip.forEach((path, entry) => {
+        if (!entry.dir && !path.startsWith('__MACOSX') && !path.includes('.DS_Store')) {
+          promises.push(
+            entry.async('base64').then(content => {
+              files.push({ path, content });
+            })
+          );
+        }
+      });
+      await Promise.all(promises);
+
+      // Strip common root folder
+      if (files.length > 0) {
+        const parts = files[0].path.split('/');
+        if (parts.length > 1) {
+          const root = parts[0] + '/';
+          if (files.every(f => f.path.startsWith(root))) {
+            files.forEach(f => f.path = f.path.slice(root.length));
+          }
+        }
+      }
+    } else {
+      // Single HTML file — read as base64, deploy as index.html
+      const content = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(selectedFile);
+      });
+      files.push({ path: 'index.html', content });
+    }
+
+    setStep(1, 'done');
+
+    // Security scan — skip if app has it disabled
+    if (!app.skipScan) {
+      const securityPassed = await runSecurityScan(files);
+      if (!securityPassed) {
+        document.getElementById('deployBtn').disabled = false;
+        document.getElementById('progressWrap').classList.remove('visible');
+        resetSteps();
+        return;
+      }
+    }
+
+    // Step 2: Connect
+    setStep(2, 'active');
+    const headers = {
+      'Authorization': `token ${token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json'
+    };
+
+    // Get latest commit SHA
+    const refRes = await fetch(`https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/ref/heads/${branch}`, { headers });
+    if (!refRes.ok) {
+      const err = await refRes.json();
+      throw new Error(err.message || 'Cannot connect to repo');
+    }
+    const refData = await refRes.json();
+    const latestSha = refData.object.sha;
+
+    // Get base tree
+    const commitRes = await fetch(`https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/commits/${latestSha}`, { headers });
+    const commitData = await commitRes.json();
+    const baseTreeSha = commitData.tree.sha;
+
+    setStep(2, 'done');
+
+    // Step 3: Push files
+    setStep(3, 'active');
+
+    // Create blobs for each file
+    const treeItems = [];
+    for (const file of files) {
+      if (!file.path) continue;
+      const blobRes = await fetch(`https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/blobs`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ content: file.content, encoding: 'base64' })
+      });
+      const blobData = await blobRes.json();
+      if (!blobData.sha) throw new Error(`Failed to upload ${file.path}: ${blobData.message || 'unknown'}`);
+      treeItems.push({ path: file.path, mode: '100644', type: 'blob', sha: blobData.sha });
+    }
+
+    // Create tree
+    const treeRes = await fetch(`https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/trees`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ base_tree: baseTreeSha, tree: treeItems })
+    });
+    const treeData = await treeRes.json();
+    if (!treeData.sha) throw new Error(treeData.message || 'Tree creation failed');
+
+    // Create commit
+    const newCommitRes = await fetch(`https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/commits`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        message: `Deploy via Push app — ${new Date().toLocaleString()}`,
+        tree: treeData.sha,
+        parents: [latestSha]
+      })
+    });
+    const newCommitData = await newCommitRes.json();
+    if (!newCommitData.sha) throw new Error(newCommitData.message || 'Commit creation failed');
+
+    // Update ref
+    await fetch(`https://api.github.com/repos/${sanitise(app.username)}/${sanitise(app.repo)}/git/refs/heads/${branch}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ sha: newCommitData.sha, force: false })
+    });
+
+    setStep(3, 'done');
+    setStep(4, 'done');
+
+    // Save to history
+    const commitMsg = `Deployed via Push — ${new Date().toLocaleString()}`;
+    const commitUrl = `https://github.com/${sanitise(app.username)}/${sanitise(app.repo)}/commit/${newCommitData.sha}`;
+    saveDeployHistory(currentAppId, commitMsg, {
+      branch: app.branch || 'main',
+      commitUrl,
+      commitSha: newCommitData.sha.slice(0, 7),
+      fullTime: new Date().toISOString(),
+      zipName: selectedFile.name
+    });
+    renderDeployHistory(currentAppId);
+
+    // Result
+    const liveUrl = `https://${sanitise(app.username)}.github.io/${sanitise(app.repo)}/`;
+    document.getElementById('resultUrl').textContent = liveUrl;
+    document.getElementById('openUrlBtn').href = liveUrl;
+    document.getElementById('copyUrlBtn').onclick = () => {
+      navigator.clipboard.writeText(liveUrl).then(() => showToast('URL copied'));
+    };
+    document.getElementById('resultWrap').classList.add('visible');
+    showToast('Deployed ✓');
+    lastDeployTime = Date.now();
+    // Invalidate icon cache for this app so new icon is fetched
+    delete iconCache[currentAppId];
+    localStorage.removeItem(`push_icon_${currentAppId}`);
+
+    // Start polling for GitHub Pages rebuild notification
+    const historyKey = `push_history_${currentAppId}`;
+    const existingHistory = store.get(historyKey) || [];
+    const alreadyResolved = existingHistory.length > 0 && existingHistory[0].status;
+    if (!alreadyResolved) {
+      pollUntilLive(app.username, app.repo, newCommitData.sha, app.name, currentAppId);
+    }
+
+  } catch (err) {
+    for (let i = 1; i <= 4; i++) {
+      const el = document.getElementById('ps' + i);
+      if (el && el.classList.contains('active')) { setStep(i, 'err'); break; }
+    }
+    showToast('Error: ' + err.message);
+    document.getElementById('resultUrl').textContent = '⚠ ' + err.message;
+    document.getElementById('resultWrap').classList.add('visible');
+    document.getElementById('deployBtn').disabled = false;
+  }
+}
+
+// ── Back ──
+document.getElementById('backBtn').addEventListener('click', () => {
+  renderApps();
+  showView('homeView');
+});
+
+// ── Token sheet ──
+function openTokenSheet() {
+  document.getElementById('globalUsernameInput').value = globalUsername;
+  document.getElementById('tokenInput').value = token;
+
+  // Remember toggle
+  const rememberToggle = document.getElementById('rememberTokenToggle');
+  rememberToggle.classList.toggle('on', rememberToken);
+
+  // Show disconnect button only when connected
+  document.getElementById('disconnectBtn').style.display = token ? 'flex' : 'none';
+
+  // Populate summary
+  document.getElementById('summaryApps').textContent = apps.length;
+  const totalDeploys = apps.reduce((sum, app) => {
+    const hist = store.get(`push_history_${app.id}`) || [];
+    return sum + hist.length;
+  }, 0);
+  document.getElementById('summaryDeploys').textContent = totalDeploys;
+
+  document.getElementById('tokenSheet').classList.add('open');
+}
+
+// Remember toggle
+document.getElementById('rememberTokenRow').addEventListener('click', () => {
+  rememberToken = !rememberToken;
+  document.getElementById('rememberTokenToggle').classList.toggle('on', rememberToken);
+  store.set('push_remember_token', rememberToken);
+});
+
+// Disconnect button
+document.getElementById('disconnectBtn').addEventListener('click', () => {
+  document.getElementById('mismatchMsg').innerHTML = 'This will remove your GitHub token and username from this device. <strong>Your apps and repos will not be affected.</strong>';
+  document.getElementById('mismatchSheet').querySelector('.sheet-title').textContent = 'Disconnect GitHub?';
+  document.getElementById('mismatchContinue').textContent = 'Disconnect';
+  document.getElementById('mismatchSheet').classList.add('open');
+
+  document.getElementById('mismatchContinue').onclick = () => {
+    document.getElementById('mismatchSheet').classList.remove('open');
+    document.getElementById('mismatchContinue').textContent = 'Deploy Anyway';
+    document.getElementById('mismatchSheet').querySelector('.sheet-title').textContent = 'Wrong file?';
+    // Clear token and username from all storage
+    token = '';
+    globalUsername = '';
+    localStorage.removeItem('push_token');
+    localStorage.removeItem('push_username');
+    sessionStorage.removeItem('push_token_session');
+    sessionStorage.removeItem('push_username_session');
+    updateTokenStatus();
+    document.getElementById('tokenSheet').classList.remove('open');
+    showToast('GitHub disconnected');
+  };
+  document.getElementById('mismatchCancel').onclick = () => {
+    document.getElementById('mismatchSheet').classList.remove('open');
+    document.getElementById('mismatchContinue').textContent = 'Deploy Anyway';
+    document.getElementById('mismatchSheet').querySelector('.sheet-title').textContent = 'Wrong file?';
+  };
+});
+
+document.getElementById('clearDataBtn').addEventListener('click', () => {
+  document.getElementById('mismatchMsg').innerHTML = 'This removes your apps, token and history from this device. <strong>Your GitHub repos will not be affected.</strong>';
+  document.getElementById('mismatchSheet').querySelector('.sheet-title').textContent = 'Clear all data?';
+  document.getElementById('mismatchContinue').textContent = 'Clear Data';
+  document.getElementById('mismatchSheet').classList.add('open');
+
+  document.getElementById('mismatchContinue').onclick = () => {
+    document.getElementById('mismatchSheet').classList.remove('open');
+    document.getElementById('mismatchContinue').textContent = 'Deploy Anyway';
+    document.getElementById('mismatchSheet').querySelector('.sheet-title').textContent = 'Wrong file?';
+    localStorage.clear();
+    showToast('Data cleared');
+    location.reload();
+  };
+  document.getElementById('mismatchCancel').onclick = () => {
+    document.getElementById('mismatchSheet').classList.remove('open');
+    document.getElementById('mismatchContinue').textContent = 'Deploy Anyway';
+    document.getElementById('mismatchSheet').querySelector('.sheet-title').textContent = 'Wrong file?';
+  };
+});
+
+document.getElementById('globalSettingsBtn').addEventListener('click', openTokenSheet);
+document.getElementById('tokenCancel').addEventListener('click', () => {
+  document.getElementById('tokenSheet').classList.remove('open');
+});
+document.getElementById('tokenSave').addEventListener('click', () => {
+  const username = document.getElementById('globalUsernameInput').value.trim();
+  const val = document.getElementById('tokenInput').value.trim();
+  if (!username) { showToast('Enter your GitHub username'); return; }
+  if (!val) { showToast('Enter a token'); return; }
+  globalUsername = username;
+  token = val;
+
+  if (rememberToken) {
+    // Save permanently to localStorage
+    store.set('push_username', globalUsername);
+    store.set('push_token', token);
+    sessionStorage.removeItem('push_token_session');
+    sessionStorage.removeItem('push_username_session');
+  } else {
+    // Session only — save to sessionStorage, clear localStorage
+    sessionStorage.setItem('push_token_session', token);
+    sessionStorage.setItem('push_username_session', globalUsername);
+    localStorage.removeItem('push_token');
+    localStorage.removeItem('push_username');
+  }
+
+  document.getElementById('tokenSheet').classList.remove('open');
+  updateTokenStatus();
+  showToast('Settings saved');
+  ensureConfigRepo().then(() => restoreConfigFromGitHub()).then((restored) => {
+    if (restored) {
+      renderApps();
+      showToast('Config restored from GitHub ✓');
+    } else {
+      syncConfigToGitHub();
+    }
+  });
+});
+
+// ── Emoji picker ──
+function renderEmojiPicker() {
+  const row = document.getElementById('emojiRow');
+  row.innerHTML = EMOJIS.map(e => `
+    <div class="emoji-opt${e === selectedEmoji ? ' selected' : ''}" data-emoji="${e}">${e}</div>
+  `).join('');
+  row.querySelectorAll('.emoji-opt').forEach(el => {
+    el.addEventListener('click', () => {
+      selectedEmoji = el.dataset.emoji;
+      renderEmojiPicker();
+    });
+  });
+}
+
+// ── Toggle ──
+let createRepoEnabled = false;
+let skipScanEnabled = false;
+
+document.getElementById('skipScanToggleRow').addEventListener('click', () => {
+  skipScanEnabled = !skipScanEnabled;
+  document.getElementById('skipScanToggle').classList.toggle('on', skipScanEnabled);
+});
+
+document.getElementById('createRepoToggleRow').addEventListener('click', () => {
+  createRepoEnabled = !createRepoEnabled;
+  const toggle = document.getElementById('createRepoToggle');
+  toggle.classList.toggle('on', createRepoEnabled);
+  document.getElementById('manualRepoSection').style.display = createRepoEnabled ? 'none' : 'block';
+  document.getElementById('autoRepoSection').style.display = createRepoEnabled ? 'block' : 'none';
+});
+
+// Live preview of repo name
+document.getElementById('appRepoAutoInput').addEventListener('input', (e) => {
+  const slug = slugify(e.target.value);
+  document.getElementById('repoPreviewName').textContent = slug || 'repo';
+});
+
+function slugify(str) {
+  return str.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
+
+// ── Create GitHub repo ──
+async function createGitHubRepo(username, repoName, branch) {
+  const headers = {
+    'Authorization': `token ${token}`,
+    'Accept': 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json'
+  };
+
+  // 1. Create repo
+  const createRes = await fetch(`https://api.github.com/user/repos`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      name: repoName,
+      description: `Deployed via Push app`,
+      private: false,
+      auto_init: true
+    })
+  });
+
+  if (!createRes.ok) {
+    const err = await createRes.json();
+    throw new Error(err.message || 'Could not create repo');
+  }
+
+  // 2. Wait a moment for GitHub to initialise
+  await new Promise(r => setTimeout(r, 1500));
+
+  // 3. Enable GitHub Pages
+  try {
+    await fetch(`https://api.github.com/repos/${username}/${repoName}/pages`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ source: { branch: branch || 'main', path: '/' } })
+    });
+  } catch (e) {
+    // Pages activation sometimes needs a file first — not fatal, deploy will trigger it
+  }
+
+  return repoName;
+}
+
+// ── App sheet ──
+function openAddSheet() {
+  editingAppId = null;
+  createRepoEnabled = false;
+  skipScanEnabled = false;
+  selectedEmoji = '📱';
+  
+  document.getElementById('appSheetTitle').textContent = 'New App';
+  document.getElementById('appNameInput').value = '';
+  document.getElementById('appRepoInput').value = '';
+  document.getElementById('appRepoAutoInput').value = '';
+  document.getElementById('appBranchInput').value = 'main';
+  document.getElementById('deleteSection').style.display = 'none';
+  document.getElementById('appSave').textContent = 'Save App';
+  document.getElementById('createRepoSection').style.display = 'block';
+  document.getElementById('createRepoToggle').classList.remove('on');
+  document.getElementById('skipScanToggle').classList.remove('on');
+  document.getElementById('manualRepoSection').style.display = 'block';
+  document.getElementById('autoRepoSection').style.display = 'none';
+  document.getElementById('repoPreviewUser').textContent = globalUsername || 'username';
+  document.getElementById('repoPreviewName').textContent = 'repo';
+  renderEmojiPicker();
+  document.getElementById('appSheet').classList.add('open');
+}
+
+function openEditSheet(id) {
+  const app = apps.find(a => a.id === id);
+  if (!app) return;
+  editingAppId = id;
+  createRepoEnabled = false;
+  skipScanEnabled = app.skipScan || false;
+  
+  selectedEmoji = app.emoji || '📱';
+  document.getElementById('appSheetTitle').textContent = 'Edit App';
+  document.getElementById('appNameInput').value = app.name;
+  document.getElementById('appRepoInput').value = app.repo;
+  document.getElementById('appBranchInput').value = app.branch || 'main';
+  document.getElementById('skipScanToggle').classList.toggle('on', skipScanEnabled);
+  document.getElementById('deleteSection').style.display = 'block';
+  document.getElementById('appSave').textContent = 'Update App';
+  document.getElementById('createRepoSection').style.display = 'none';
+  document.getElementById('manualRepoSection').style.display = 'block';
+  renderEmojiPicker();
+  document.getElementById('appSheet').classList.add('open');
+}
+
+document.getElementById('addAppBtn').addEventListener('click', openAddSheet);
+document.getElementById('editAppBtn').addEventListener('click', () => {
+  if (currentAppId) openEditSheet(currentAppId);
+});
+
+document.getElementById('appCancel').addEventListener('click', () => {
+  document.getElementById('appSheet').classList.remove('open');
+});
+
+document.getElementById('appSave').addEventListener('click', async () => {
+  const name = document.getElementById('appNameInput').value.trim();
+  const username = globalUsername;
+  const branch = document.getElementById('appBranchInput').value.trim() || 'main';
+  let repo;
+
+  if (editingAppId) {
+    repo = document.getElementById('appRepoInput').value.trim();
+  } else if (createRepoEnabled) {
+    repo = slugify(document.getElementById('appRepoAutoInput').value.trim());
+  } else {
+    repo = document.getElementById('appRepoInput').value.trim();
+  }
+
+  if (!name || !username || !repo) {
+    if (!username) { showToast('Add your GitHub username in settings first'); return; }
+    showToast('Fill in all fields'); return;
+  }
+  if (!token && createRepoEnabled) { showToast('Connect a platform first'); return; }
+
+
+  const saveBtn = document.getElementById('appSave');
+  saveBtn.disabled = true;
+
+  if (!editingAppId && createRepoEnabled) {
+    saveBtn.textContent = 'Creating repo…';
+    try {
+      await createGitHubRepo(username, repo, branch);
+      showToast('Repo created ✓');
+    } catch (err) {
+      showToast('Error: ' + err.message);
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save App';
+      return;
+    }
+  }
+
+  if (editingAppId) {
+    apps = apps.map(a => a.id === editingAppId
+      ? { ...a, name, username, repo, branch, emoji: selectedEmoji, skipScan: skipScanEnabled }
+      : a
+    );
+    showToast('App updated');
+  } else {
+    apps.push({ id: Date.now().toString(), name, username, repo, branch, emoji: selectedEmoji, skipScan: skipScanEnabled });
+    showToast('App added');
+  }
+
+  store.set('push_apps', apps);
+  renderApps();
+  saveBtn.disabled = false;
+  saveBtn.textContent = editingAppId ? 'Update App' : 'Save App';
+  document.getElementById('appSheet').classList.remove('open');
+  syncConfigToGitHub();
+});
+
+document.getElementById('appDelete').addEventListener('click', () => {
+  if (!editingAppId) return;
+  apps = apps.filter(a => a.id !== editingAppId);
+  store.set('push_apps', apps);
+  renderApps();
+  document.getElementById('appSheet').classList.remove('open');
+  showView('homeView');
+  showToast('App deleted');
+  syncConfigToGitHub();
+});
+
+['tokenSheet', 'appSheet'].forEach(id => {
+  document.getElementById(id).addEventListener('click', (e) => {
+    if (e.target === document.getElementById(id)) {
+      document.getElementById(id).classList.remove('open');
+    }
+  });
+});
+
+// ── Onboarding ──
+let onboardStep = 0;
+const TOTAL_STEPS = 3;
+
+function showOnboardStep(n) {
+  document.querySelectorAll('.onboard-slide').forEach((s, i) => {
+    s.classList.toggle('active', i === n);
+  });
+  document.querySelectorAll('.onboard-pip').forEach((p, i) => {
+    p.classList.toggle('active', i <= n);
+  });
+
+  const nextBtn = document.getElementById('onboardNextBtn');
+  const skipBtn = document.getElementById('onboardSkipBtn');
+
+  if (n === 0) {
+    nextBtn.textContent = 'Get Started →';
+    skipBtn.style.display = 'block';
+  } else if (n === 1) {
+    nextBtn.textContent = 'Next →';
+    skipBtn.style.display = 'block';
+  } else {
+    nextBtn.textContent = 'Connect GitHub →';
+    skipBtn.style.display = 'block';
+  }
+}
+
+document.getElementById('onboardNextBtn').addEventListener('click', () => {
+  if (onboardStep < TOTAL_STEPS - 1) {
+    onboardStep++;
+    showOnboardStep(onboardStep);
+  } else {
+    // Last step — go to home and open token sheet
+    finishOnboard(true);
+  }
+});
+
+document.getElementById('onboardSkipBtn').addEventListener('click', () => {
+  finishOnboard(false);
+});
+
+function finishOnboard(openToken) {
+  store.set('push_onboarded', true);
+  showView('homeView');
+  if (openToken) {
+    setTimeout(() => openTokenSheet(), 300);
+  }
+}
+
+function checkOnboard() {
+  const done = store.get('push_onboarded');
+  if (!done) {
+    showView('onboardView');
+    showOnboardStep(0);
+  }
+}
+
+// ── Swipe down to dismiss sheets ──
+(function() {
+  const SHEETS = ['tokenSheet', 'appSheet', 'mismatchSheet', 'securitySheet'];
+
+  SHEETS.forEach(sheetId => {
+    const overlay = document.getElementById(sheetId);
+    const sheet = overlay.querySelector('.sheet');
+    let startY = 0;
+    let isDragging = false;
+
+    sheet.addEventListener('touchstart', (e) => {
+      startY = e.touches[0].clientY;
+      isDragging = true;
+      sheet.style.transition = 'none';
+    }, { passive: true });
+
+    sheet.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy > 0) {
+        sheet.style.transform = `translateY(${dy}px)`;
+      }
+    }, { passive: true });
+
+    sheet.addEventListener('touchend', (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      const dy = e.changedTouches[0].clientY - startY;
+      sheet.style.transition = 'transform 0.25s cubic-bezier(0.32, 0.72, 0, 1)';
+      if (dy > 100) {
+        sheet.style.transform = `translateY(100%)`;
+        setTimeout(() => {
+          overlay.classList.remove('open');
+          sheet.style.transform = '';
+          sheet.style.transition = '';
+        }, 250);
+      } else {
+        sheet.style.transform = 'translateY(0)';
+        setTimeout(() => {
+          sheet.style.transition = '';
+        }, 250);
+      }
+    }, { passive: true });
+  });
+})();
+
+// ── Swipe right to go back on deploy screen ──
+(function() {
+  const deployView = document.getElementById('deployView');
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+
+  deployView.addEventListener('touchstart', (e) => {
+    const touch = e.touches[0];
+    // Only trigger if swipe starts from left edge (within 30px)
+    if (touch.clientX < 30) {
+      startX = touch.clientX;
+      startY = touch.clientY;
+      tracking = true;
+    }
+  }, { passive: true });
+
+  deployView.addEventListener('touchmove', (e) => {
+    if (!tracking) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = Math.abs(e.touches[0].clientY - startY);
+    // Must be more horizontal than vertical
+    if (dx > 10 && dy < 60) {
+      deployView.style.transform = `translateX(${Math.min(dx, window.innerWidth)}px)`;
+      deployView.style.transition = 'none';
+    }
+  }, { passive: true });
+
+  deployView.addEventListener('touchend', (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const dx = e.changedTouches[0].clientX - startX;
+    if (dx > 80) {
+      // Commit the swipe — animate out then go back
+      deployView.style.transition = 'transform 0.25s ease';
+      deployView.style.transform = `translateX(100%)`;
+      setTimeout(() => {
+        deployView.style.transform = '';
+        deployView.style.transition = '';
+        renderApps();
+        showView('homeView');
+      }, 250);
+    } else {
+      // Snap back
+      deployView.style.transition = 'transform 0.2s ease';
+      deployView.style.transform = 'translateX(0)';
+      setTimeout(() => {
+        deployView.style.transform = '';
+        deployView.style.transition = '';
+      }, 200);
+    }
+  }, { passive: true });
+})();
+
+// ── Pull to refresh — Deploy screen ──
+(function() {
+  let startY = 0;
+  let pulling = false;
+  let refreshing = false;
+  const THRESHOLD = 70;
+
+  const scroll = document.getElementById('deployScroll');
+  const indicator = document.getElementById('deployPullIndicator');
+  const pullText = document.getElementById('deployPullText');
+
+  scroll.addEventListener('touchstart', (e) => {
+    if (scroll.scrollTop === 0) {
+      startY = e.touches[0].clientY;
+      pulling = true;
+    }
+  }, { passive: true });
+
+  scroll.addEventListener('touchmove', (e) => {
+    if (!pulling || refreshing) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 10) {
+      indicator.classList.add('visible');
+      indicator.classList.remove('refreshing');
+      pullText.textContent = dy > THRESHOLD ? 'Release to refresh' : 'Pull to refresh';
+    } else {
+      indicator.classList.remove('visible');
+    }
+  }, { passive: true });
+
+  scroll.addEventListener('touchend', (e) => {
+    if (!pulling || refreshing) return;
+    pulling = false;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy > THRESHOLD) {
+      refreshing = true;
+      indicator.classList.add('refreshing');
+      pullText.textContent = 'Refreshing…';
+      // Re-check build status and re-render history
+      setTimeout(() => {
+        if (currentAppId) {
+          const app = apps.find(a => a.id === currentAppId);
+          const histKey = `push_history_${currentAppId}`;
+          const hist = store.get(histKey) || [];
+          if (hist.length > 0 && !hist[0].status && app) {
+            pollUntilLive(app.username, app.repo, null, app.name, currentAppId);
+          }
+          renderDeployHistory(currentAppId);
+          if (app) fetchTrafficStats(app.username, app.repo);
+        }
+        indicator.classList.remove('visible', 'refreshing');
+        refreshing = false;
+      }, 800);
+    } else {
+      indicator.classList.remove('visible');
+    }
+  }, { passive: true });
+})();
+
+// ── Pull to refresh ──
+(function() {
+  let startY = 0;
+  let pulling = false;
+  let refreshing = false;
+  const THRESHOLD = 70;
+  const scroll = document.getElementById('homeScroll');
+  const indicator = document.getElementById('pullIndicator');
+  const pullText = document.getElementById('pullText');
+
+  scroll.addEventListener('touchstart', (e) => {
+    if (scroll.scrollTop === 0) {
+      startY = e.touches[0].clientY;
+      pulling = true;
+    }
+  }, { passive: true });
+
+  scroll.addEventListener('touchmove', (e) => {
+    if (!pulling || refreshing) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 10) {
+      indicator.classList.add('visible');
+      indicator.classList.remove('refreshing');
+      pullText.textContent = dy > THRESHOLD ? 'Release to refresh' : 'Pull to refresh';
+    } else {
+      indicator.classList.remove('visible');
+    }
+  }, { passive: true });
+
+  scroll.addEventListener('touchend', (e) => {
+    if (!pulling || refreshing) return;
+    pulling = false;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy > THRESHOLD) {
+      refreshing = true;
+      indicator.classList.add('refreshing');
+      pullText.textContent = 'Refreshing…';
+      setTimeout(() => {
+        location.reload();
+      }, 800);
+    } else {
+      indicator.classList.remove('visible');
+    }
+  }, { passive: true });
+})();
+
+// ── Init ──
+updateTokenStatus();
+renderApps();
+checkOnboard();
+
+// Track app open and restore config
+if (token && globalUsername) {
+  restoreConfigFromGitHub().then(restored => {
+    if (restored) {
+      renderApps();
+      updateTokenStatus();
+    } else {
+      ensureConfigRepo().then(() => syncConfigToGitHub());
+    }
+  }).then(() => loadIconsForApps());
+}
+</script>
+</body>
+</html>
